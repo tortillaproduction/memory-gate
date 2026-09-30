@@ -1,0 +1,5 @@
+# Signing (never commit)
+*.jks
+*.keystore
+keystore.properties
+local.properties

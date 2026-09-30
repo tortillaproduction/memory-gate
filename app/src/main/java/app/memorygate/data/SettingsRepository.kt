@@ -14,8 +14,12 @@ interface SettingsRepository {
     /** ゲートのボタンを押した日。この日はゲートを出さない */
     val gatePassedDate: Flow<LocalDate?>
     val onboardingCompleted: Flow<Boolean>
+
+    /** オンボーディングの「メーカー別の追加設定」を自己申告で完了にしたか */
+    val manufacturerStepDone: Flow<Boolean>
     suspend fun setGatePassedDate(date: LocalDate?)
     suspend fun setOnboardingCompleted(completed: Boolean)
+    suspend fun setManufacturerStepDone(done: Boolean)
 }
 
 class DataStoreSettingsRepository(
@@ -35,6 +39,9 @@ class DataStoreSettingsRepository(
     override val onboardingCompleted: Flow<Boolean> =
         dataStore.data.map { it[KEY_ONBOARDING_COMPLETED] ?: false }
 
+    override val manufacturerStepDone: Flow<Boolean> =
+        dataStore.data.map { it[KEY_MANUFACTURER_STEP_DONE] ?: false }
+
     override suspend fun setGatePassedDate(date: LocalDate?) {
         dataStore.edit { prefs ->
             if (date == null) prefs.remove(KEY_GATE_PASSED_DATE) else prefs[KEY_GATE_PASSED_DATE] = date.toString()
@@ -45,8 +52,13 @@ class DataStoreSettingsRepository(
         dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
     }
 
+    override suspend fun setManufacturerStepDone(done: Boolean) {
+        dataStore.edit { it[KEY_MANUFACTURER_STEP_DONE] = done }
+    }
+
     private companion object {
         val KEY_GATE_PASSED_DATE = stringPreferencesKey("gatePassedDate")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboardingCompleted")
+        val KEY_MANUFACTURER_STEP_DONE = booleanPreferencesKey("manufacturerStepDone")
     }
 }

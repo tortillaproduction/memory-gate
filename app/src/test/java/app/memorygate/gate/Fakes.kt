@@ -34,11 +34,16 @@ class FakeSettingsRepository : SettingsRepository {
     val passed = MutableStateFlow<LocalDate?>(null)
     val onboarding = MutableStateFlow(false)
     override val gatePassedDate: Flow<LocalDate?> = passed
+    val manufacturer = MutableStateFlow(false)
     override val onboardingCompleted: Flow<Boolean> = onboarding
+    override val manufacturerStepDone: Flow<Boolean> = manufacturer
     override suspend fun setGatePassedDate(date: LocalDate?) {
         passed.value = date
     }
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         onboarding.value = completed
+    }
+    override suspend fun setManufacturerStepDone(done: Boolean) {
+        manufacturer.value = done
     }
 }

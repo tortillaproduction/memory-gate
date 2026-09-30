@@ -166,7 +166,10 @@ UI 上のスケジュール選択肢は次の 4 種類:
    「ストア外からインストールしたアプリはユーザー補助を有効にできないことがあります。アプリ情報 → 右上の︙ → 『制限付き設定を許可』をタップしてください」と説明し、`Settings.ACTION_APPLICATION_DETAILS_SETTINGS` を開くボタンを置く
 3. **ユーザー補助（Accessibility）を有効化**: `Settings.ACTION_ACCESSIBILITY_SETTINGS` を開くボタンを置き、有効化されているかを判定して表示する
 4. **電池の最適化から除外**: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` 権限を宣言し、`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` で依頼する。状態は `PowerManager.isIgnoringBatteryOptimizations` で判定する
-5. **メーカー別の追加設定**: `Build.MANUFACTURER` に応じて案内文を出し分ける（Xiaomi/Redmi/POCO: 自動起動を許可、OPPO/realme/OnePlus: バックグラウンド実行を許可、Samsung: 「未使用アプリをスリープ」から除外、Huawei: アプリ起動管理を手動にする、その他: 一般的な案内）。あわせて https://dontkillmyapp.com へのリンクを置く。このステップは自己申告で「完了」にする
+5. **メーカー別の追加設定**: `Build.MANUFACTURER`（大文字小文字を区別しない）が OPPO または motorola の場合のみ表示する。それ以外のメーカーではこのステップ自体を表示しない
+   - OPPO: 「設定 → バッテリー → アプリのバッテリー管理 → Memory Gate で『バックグラウンド実行を許可』『自動起動を許可』をオン」
+   - motorola: 「設定 → アプリ → Memory Gate → アプリのバッテリー使用量 → 『制限なし』を選択」
+   - このステップは自己申告で「完了」にする
 6. **誘導先を登録**（1 件以上。スキップ可）
 7. **監視対象アプリを選択**（1 件以上。スキップ可）
 

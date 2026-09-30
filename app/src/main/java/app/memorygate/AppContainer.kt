@@ -2,6 +2,7 @@ package app.memorygate
 
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import app.memorygate.apps.InstalledAppsRepository
 import app.memorygate.data.DataStoreSettingsRepository
 import app.memorygate.data.GuardedAppRepository
 import app.memorygate.data.RoomGuardedAppRepository
@@ -30,4 +31,5 @@ class AppContainer(context: Context) {
     val targetRepository: TargetRepository by lazy { RoomTargetRepository(database.targetDao()) }
     val guardedAppRepository: GuardedAppRepository by lazy { RoomGuardedAppRepository(database.guardedAppDao()) }
     val settingsRepository: SettingsRepository by lazy { DataStoreSettingsRepository(appContext.settingsDataStore) }
+    val installedAppsRepository: InstalledAppsRepository by lazy { InstalledAppsRepository(appContext) }
 }

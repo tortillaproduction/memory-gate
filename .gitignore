@@ -3,3 +3,14 @@
 *.keystore
 keystore.properties
 local.properties
+
+# Gradle / Android Studio
+.gradle/
+.kotlin/
+build/
+captures/
+.idea/
+*.iml
+.DS_Store
+.externalNativeBuild/
+.cxx/

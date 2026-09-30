@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Memory Gate</string>
+    <string name="accessibility_service_label">Memory Gate</string>
+    <string name="accessibility_service_description">指定アプリの起動を検知してゲート画面を表示するためにのみ使用します。画面の内容は読み取りません</string>
 </resources>

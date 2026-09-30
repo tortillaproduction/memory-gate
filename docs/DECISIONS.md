@@ -50,3 +50,11 @@ SPEC.md に明記されていない判断と、その理由を記録する。
 - **`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` は SPEC の指定どおり使用し、lint の `BatteryLife` 警告は抑制する**（Play Store を経由しないため、ポリシー上の問題はない）。
 - **設定画面が開けない端末では、アプリ情報画面にフォールバックする**。
 - **ホームのバナーからは、オンボーディングの「ユーザー補助を有効化」ステップを直接開く**。
+
+## 配布・CI
+
+- **署名情報の受け渡し**: release.yml で `KEYSTORE_BASE64` をデコードしてランナーの一時ディレクトリに書き出し、そのパスを `KEYSTORE_PATH` 環境変数で Gradle に渡す。`app/build.gradle.kts` は `KEYSTORE_PATH` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` がすべて揃っているときだけ release の署名設定を作る。
+- **タグと versionName の整合性チェック**: release.yml でタグが `v<versionName>` と一致しない場合は失敗させる（`gradle.properties` を唯一の情報源にするため）。
+- **GitHub Release の作成には `gh release create` を使う**（ランナーに標準で入っており、追加の Action に依存しない）。APK は `memory-gate-<タグ>.apk` という名前で添付する。
+- **R8**: release で `isMinifyEnabled` と `isShrinkResources` を有効にする。Room（`-keep class * extends androidx.room3.RoomDatabase`）・DataStore・Navigation などは各ライブラリ同梱の consumer ルールで足りるため、独自の keep ルールは行番号の保持のみ。Room の enum 変換は生成コードの文字列リテラルで行われ、R8 による難読化の影響を受けないことを確認した。
+- **build.yml は push と pull_request の両方で実行する**（SPEC の指定どおり。PR ブランチでは同じコミットに対して 2 回実行される）。

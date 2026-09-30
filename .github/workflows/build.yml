@@ -8,21 +8,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      # Android SDK は ubuntu-latest ランナーにプリインストール済み（ANDROID_HOME）。
+      # 不足しているプラットフォーム / build-tools は AGP が自動でダウンロードする。
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Lint, unit test, assemble
         run: ./gradlew lint testDebugUnitTest assembleDebug
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: reports

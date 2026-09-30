@@ -58,3 +58,4 @@ SPEC.md に明記されていない判断と、その理由を記録する。
 - **GitHub Release の作成には `gh release create` を使う**（ランナーに標準で入っており、追加の Action に依存しない）。APK は `memory-gate-<タグ>.apk` という名前で添付する。
 - **R8**: release で `isMinifyEnabled` と `isShrinkResources` を有効にする。Room（`-keep class * extends androidx.room3.RoomDatabase`）・DataStore・Navigation などは各ライブラリ同梱の consumer ルールで足りるため、独自の keep ルールは行番号の保持のみ。Room の enum 変換は生成コードの文字列リテラルで行われ、R8 による難読化の影響を受けないことを確認した。
 - **build.yml は push と pull_request の両方で実行する**（SPEC の指定どおり。PR ブランチでは同じコミットに対して 2 回実行される）。
+- **CI では `android-actions/setup-android` を使わない**: ubuntu-latest ランナーに Android SDK がプリインストールされており、同 Action は実行時に sdkmanager のエラーで失敗したため。不足するプラットフォーム等は AGP が自動取得する。

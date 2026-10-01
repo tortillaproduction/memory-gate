@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import app.memorygate.ui.AppNavHost
+import app.memorygate.ui.common.NavigationBarTapToggle
+import app.memorygate.ui.common.NavigationBars
 import app.memorygate.ui.theme.MemoryGateTheme
 import kotlinx.coroutines.flow.first
 
@@ -25,9 +27,17 @@ class MainActivity : ComponentActivity() {
                     value = settings.onboardingCompleted.first()
                 }
                 Surface(Modifier.fillMaxSize()) {
-                    onboardingCompleted?.let { AppNavHost(startWithOnboarding = !it) }
+                    NavigationBarTapToggle {
+                        onboardingCompleted?.let { AppNavHost(startWithOnboarding = !it) }
+                    }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // ナビゲーションバーは既定で非表示（SPEC 7.0）
+        NavigationBars.hide(window)
     }
 }

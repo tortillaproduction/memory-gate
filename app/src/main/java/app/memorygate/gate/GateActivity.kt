@@ -15,6 +15,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.memorygate.appContainer
+import app.memorygate.ui.common.NavigationBarTapToggle
+import app.memorygate.ui.common.NavigationBars
 import app.memorygate.ui.theme.MemoryGateTheme
 import kotlinx.coroutines.launch
 
@@ -51,9 +53,17 @@ class GateActivity : ComponentActivity() {
                 LaunchedEffect(state) {
                     if (!state.loading && state.items.isEmpty() && !opening) finish()
                 }
-                GateScreen(state = state, onOpen = ::openTarget, onEscape = ::goHome)
+                NavigationBarTapToggle {
+                    GateScreen(state = state, onOpen = ::openTarget, onEscape = ::goHome)
+                }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // ナビゲーションバーは既定で非表示（SPEC 7.0）
+        NavigationBars.hide(window)
     }
 
     override fun onNewIntent(intent: Intent) {

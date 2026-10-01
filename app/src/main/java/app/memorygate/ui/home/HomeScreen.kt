@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.memorygate.BuildConfig
+import app.memorygate.ui.common.DISCLAIMER_TEXT
 import app.memorygate.ui.common.TargetTypeIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -141,7 +144,16 @@ fun HomeScreen(
             onDismissRequest = { showAbout = false },
             confirmButton = { TextButton(onClick = { showAbout = false }) { Text("閉じる") } },
             title = { Text("Memory Gate") },
-            text = { Text("バージョン ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("バージョン ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）")
+                    Text("免責事項", style = MaterialTheme.typography.titleSmall)
+                    Text(DISCLAIMER_TEXT, style = MaterialTheme.typography.bodySmall)
+                }
+            },
         )
     }
 }

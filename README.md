@@ -3,7 +3,7 @@
 SNS などの「つい開いてしまうアプリ」を開いたときに、期限切れの「やるべきこと」（誘導先）があればゲート画面を表示して、そちらへ誘導する Android アプリです。
 
 - 個人利用向け。Play Store は経由せず、署名済み APK を GitHub Releases で配布します
-- 端末内で完結します（サーバー・アカウント・インターネット権限なし）
+- 端末内で完結します（サーバー・アカウント不要）。通信は、新しいバージョンの確認のために GitHub に最新のバージョン番号を問い合わせるときだけ行います
 - 仕様: [docs/SPEC.md](docs/SPEC.md) / 設計判断: [docs/DECISIONS.md](docs/DECISIONS.md) / 実機確認: [docs/MANUAL_TEST.md](docs/MANUAL_TEST.md)
 
 ## 免責事項

@@ -2,6 +2,7 @@ package app.memorygate.gate
 
 import app.memorygate.data.GuardedAppRepository
 import app.memorygate.data.SettingsRepository
+import app.memorygate.data.StoredRelease
 import app.memorygate.data.TargetRepository
 import app.memorygate.domain.Target
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,12 @@ class FakeSettingsRepository : SettingsRepository {
     val manufacturer = MutableStateFlow(false)
     override val onboardingCompleted: Flow<Boolean> = onboarding
     override val manufacturerStepDone: Flow<Boolean> = manufacturer
+    val lastChecked = MutableStateFlow<Long?>(null)
+    val release = MutableStateFlow<StoredRelease?>(null)
+    val dismissed = MutableStateFlow<String?>(null)
+    override val updateLastCheckedAt: Flow<Long?> = lastChecked
+    override val latestRelease: Flow<StoredRelease?> = release
+    override val dismissedUpdateVersion: Flow<String?> = dismissed
     override suspend fun setGatePassedDate(date: LocalDate?) {
         passed.value = date
     }
@@ -45,5 +52,14 @@ class FakeSettingsRepository : SettingsRepository {
     }
     override suspend fun setManufacturerStepDone(done: Boolean) {
         manufacturer.value = done
+    }
+    override suspend fun setUpdateLastCheckedAt(epochMillis: Long) {
+        lastChecked.value = epochMillis
+    }
+    override suspend fun setLatestRelease(version: String, htmlUrl: String) {
+        release.value = StoredRelease(version, htmlUrl)
+    }
+    override suspend fun setDismissedUpdateVersion(version: String) {
+        dismissed.value = version
     }
 }

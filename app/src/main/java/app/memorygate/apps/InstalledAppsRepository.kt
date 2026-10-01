@@ -4,9 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import android.provider.Telephony
-import android.telecom.TelecomManager
-import android.view.inputmethod.InputMethodManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.Collator
@@ -16,6 +13,7 @@ import java.util.Locale
 class InstalledAppsRepository(context: Context) {
     private val appContext = context.applicationContext
     private val packageManager: PackageManager = appContext.packageManager
+    private val packageInfoSource: PackageInfoSource = AndroidPackageInfoSource(appContext)
 
     /** ランチャーに表示されるアプリをアプリ名順に返す（`excluded` に含まれるものは除く） */
     suspend fun loadLauncherApps(excluded: Set<String>): List<InstalledApp> = withContext(Dispatchers.IO) {
@@ -31,15 +29,9 @@ class InstalledAppsRepository(context: Context) {
             .toList()
     }
 
-    /** 監視対象アプリとして選択できないパッケージ */
-    suspend fun guardExcludedPackages(): Set<String> = withContext(Dispatchers.IO) {
-        ExcludedApps.forGuardSelection(
-            ownPackage = appContext.packageName,
-            defaultDialer = defaultDialerPackage(),
-            defaultSms = runCatching { Telephony.Sms.getDefaultSmsPackage(appContext) }.getOrNull(),
-            homePackages = homePackages(),
-            imePackages = imePackages(),
-        )
+    /** 監視対象アプリの選択での除外判定（`candidates` の中からシステムアプリを判定する） */
+    suspend fun guardExclusion(candidates: Collection<String>): GuardExclusion = withContext(Dispatchers.IO) {
+        ExcludedApps.forGuardSelection(packageInfoSource, candidates)
     }
 
     fun targetExcludedPackages(): Set<String> = ExcludedApps.forTargetSelection(appContext.packageName)
@@ -51,20 +43,4 @@ class InstalledAppsRepository(context: Context) {
         val info = packageManager.getApplicationInfo(packageName, 0)
         packageManager.getApplicationLabel(info).toString()
     }.getOrNull()
-
-    private fun defaultDialerPackage(): String? = runCatching {
-        appContext.getSystemService(TelecomManager::class.java)?.defaultDialerPackage
-    }.getOrNull()
-
-    private fun homePackages(): List<String> {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        return packageManager.queryIntentActivities(intent, 0).map { it.activityInfo.packageName }
-    }
-
-    private fun imePackages(): List<String> = runCatching {
-        appContext.getSystemService(InputMethodManager::class.java)
-            ?.enabledInputMethodList
-            ?.map { it.packageName }
-            .orEmpty()
-    }.getOrDefault(emptyList())
 }

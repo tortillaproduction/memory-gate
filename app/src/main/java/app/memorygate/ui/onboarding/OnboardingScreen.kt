@@ -209,6 +209,7 @@ private fun ColumnScope.GuardedAppsStep(viewModel: GuardedAppsViewModel) {
         state = state,
         onQueryChange = viewModel::setQuery,
         onOnlySelectedChange = viewModel::setOnlySelected,
+        onShowSystemAppsChange = viewModel::setShowSystemApps,
         onToggle = viewModel::setGuarded,
         modifier = Modifier.weight(1f),
     )

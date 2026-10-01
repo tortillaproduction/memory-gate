@@ -32,6 +32,9 @@ class TargetLauncher(context: Context) {
         }
     }
 
+    /** URL を Custom Tabs で開く（失敗時は ACTION_VIEW）。開けたら true */
+    fun openUrl(context: Context, url: String): Boolean = openUrl(context, url.toUri())
+
     private fun openUrl(context: Context, uri: Uri): Boolean {
         val customTabs = CustomTabsIntent.Builder().setShowTitle(true).build()
         customTabs.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

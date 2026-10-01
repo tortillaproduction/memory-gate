@@ -143,7 +143,10 @@ private fun IntroStep() {
     Text("・「監視対象アプリ」として、暇つぶしに開いてしまうアプリを選びます")
     Text("・監視対象アプリを開いたとき、期限切れの誘導先があればゲートが表示されます。どれか 1 つを開けば、その日はもうゲートは出ません")
     Text("・どうしても今すぐ離れたいときは、ゲート下部のボタンを 3 秒長押しするとホーム画面へ退避できます")
-    Text("データはこの端末内にだけ保存され、外部へ送信されることはありません。", style = MaterialTheme.typography.bodySmall)
+    Text(
+        "データはこの端末内にだけ保存され、外部へ送信されることはありません。新しいバージョンの確認のため、GitHub に最新のバージョン番号を問い合わせます。",
+        style = MaterialTheme.typography.bodySmall,
+    )
     Text(DISCLAIMER_TEXT, style = MaterialTheme.typography.bodySmall)
 }
 

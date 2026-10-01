@@ -16,10 +16,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,11 +42,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.memorygate.BuildConfig
+import app.memorygate.appContainer
 import app.memorygate.ui.common.DISCLAIMER_TEXT
 import app.memorygate.ui.common.TargetTypeIcon
 
@@ -61,8 +66,11 @@ fun HomeScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+
     LifecycleResumeEffect(Unit) {
         viewModel.refreshToday()
+        viewModel.checkForUpdate()
         onPauseOrDispose { }
     }
 
@@ -110,6 +118,13 @@ fun HomeScreen(
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             banner()
+            state.update?.let { update ->
+                UpdateBanner(
+                    state = update,
+                    onOpen = { context.appContainer.targetLauncher.openUrl(context, update.htmlUrl) },
+                    onDismiss = { viewModel.dismissUpdate(update.version) },
+                )
+            }
             if (state.gatePassedToday) {
                 ListItem(
                     leadingContent = {
@@ -155,6 +170,30 @@ fun HomeScreen(
                 }
             },
         )
+    }
+}
+
+/** 新しいバージョンのお知らせ（サービス状態のバナーの下に表示する） */
+@Composable
+private fun UpdateBanner(state: UpdateBannerState, onOpen: () -> Unit, onDismiss: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Row(Modifier.padding(start = 16.dp, top = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.SystemUpdate, contentDescription = null)
+            Text(
+                "新しいバージョン v${state.version} が公開されています",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = "閉じる")
+            }
+        }
+        TextButton(onClick = onOpen, modifier = Modifier.padding(start = 52.dp, bottom = 4.dp)) {
+            Text("ダウンロードページを開く")
+        }
     }
 }
 

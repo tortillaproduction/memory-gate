@@ -1,6 +1,7 @@
 package app.memorygate
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.preferencesDataStore
 import app.memorygate.apps.InstalledAppsRepository
 import app.memorygate.data.DataStoreSettingsRepository
@@ -13,6 +14,8 @@ import app.memorygate.data.db.AppDatabase
 import app.memorygate.gate.GateInteractor
 import app.memorygate.gate.GateStateCache
 import app.memorygate.gate.TargetLauncher
+import app.memorygate.update.UpdateChecker
+import app.memorygate.update.UrlConnectionHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import java.time.Clock
@@ -41,4 +44,15 @@ class AppContainer(context: Context) {
     }
     val gateInteractor: GateInteractor by lazy { GateInteractor(targetRepository, settingsRepository, clock) }
     val targetLauncher: TargetLauncher by lazy { TargetLauncher(appContext) }
+
+    /** 新しいバージョンの確認。ホーム画面からだけ使う */
+    val updateChecker: UpdateChecker by lazy {
+        UpdateChecker(
+            httpClient = UrlConnectionHttpClient(),
+            settings = settingsRepository,
+            clock = clock,
+            currentVersion = BuildConfig.VERSION_NAME,
+            log = { message, error -> Log.w("MemoryGate", message, error) },
+        )
+    }
 }

@@ -10,7 +10,7 @@
 SNS 等の暇つぶしアプリ（以下「監視対象アプリ」）を開いたとき、期限切れの「やるべきこと」（以下「誘導先」）がある場合に**ゲート画面**を強制表示し、誘導先（Web サイトまたはアプリ）へ誘導する。
 
 - 個人利用。Play Store は経由せず、署名済み APK を GitHub Releases で配布する
-- 端末内で完結する。サーバー・ネットワーク通信・アカウントは不要（INTERNET 権限も不要。URL は外部ブラウザで開く）
+- 端末内で完結する。サーバー・アカウントは不要。ネットワーク通信は、新しいバージョンの確認（GitHub に最新のバージョン番号を問い合わせる）のためだけに行う。INTERNET 権限はこの用途だけに使う（URL は外部ブラウザで開く）
 - UI 言語は日本語のみ
 
 ---
@@ -69,6 +69,11 @@ UI 上のスケジュール選択肢は次の 4 種類:
 |---|---|---|
 | gatePassedDate | String? (ISO LocalDate) | ゲートのボタンを押した日。この日はゲートを出さない |
 | onboardingCompleted | Boolean | |
+| manufacturerStepDone | Boolean | オンボーディングの「メーカー別の追加設定」を自己申告で完了にしたか |
+| updateLastCheckedAt | Long? (epoch millis) | 新しいバージョンを前回確認した日時。失敗した場合も更新する |
+| updateLatestVersion | String? | 確認で見つかった、現在より新しいバージョン（例: `0.1.3`。先頭の `v` は除く） |
+| updateLatestUrl | String? | そのバージョンのリリースページの URL（`html_url`） |
+| updateDismissedVersion | String? | ホームのお知らせバナーを「×」で閉じたバージョン |
 
 ---
 

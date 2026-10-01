@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 新しいバージョンの確認（GitHub Releases API）のためだけに使う -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- オンボーディングで電池の最適化からの除外を依頼する -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 

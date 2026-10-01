@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -65,8 +66,12 @@ fun OnboardingScreen(
             TopAppBar(title = { Text("セットアップ（${state.index + 1}/${state.steps.size}）") })
         },
         bottomBar = {
+            // ナビゲーションバーが表示されているときも、ボタンが帯に重ならないようにする
             Row(
-                Modifier.fillMaxWidth().padding(16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 TextButton(onClick = viewModel::back, enabled = state.index > 0) { Text("戻る") }
@@ -209,6 +214,7 @@ private fun ColumnScope.GuardedAppsStep(viewModel: GuardedAppsViewModel) {
         state = state,
         onQueryChange = viewModel::setQuery,
         onOnlySelectedChange = viewModel::setOnlySelected,
+        onShowSystemAppsChange = viewModel::setShowSystemApps,
         onToggle = viewModel::setGuarded,
         modifier = Modifier.weight(1f),
     )

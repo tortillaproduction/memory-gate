@@ -4,7 +4,7 @@
     <!-- オンボーディングで電池の最適化からの除外を依頼する -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- ランチャーに表示されるアプリとホームアプリの取得に使う（QUERY_ALL_PACKAGES は使わない） -->
+    <!-- ランチャーに表示されるアプリ・ホームアプリ・メールアプリの取得に使う（QUERY_ALL_PACKAGES は使わない） -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -13,6 +13,11 @@
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
+        </intent>
+        <!-- メールアプリを監視対象の候補から除外するために使う -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
         </intent>
     </queries>
 

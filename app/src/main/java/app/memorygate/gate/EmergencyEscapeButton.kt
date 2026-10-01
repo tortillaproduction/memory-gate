@@ -47,7 +47,8 @@ fun EmergencyEscapeButton(onTrigger: () -> Unit, modifier: Modifier = Modifier) 
             .semantics { role = Role.Button }
             .pointerInput(Unit) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    // 消費して、背景タップによるナビゲーションバーの切り替えを起こさない
+                    awaitFirstDown(requireUnconsumed = false).consume()
                     val job = scope.launch {
                         val start = withFrameMillis { it }
                         while (true) {
@@ -57,7 +58,7 @@ fun EmergencyEscapeButton(onTrigger: () -> Unit, modifier: Modifier = Modifier) 
                         }
                         currentOnTrigger()
                     }
-                    waitForUpOrCancellation()
+                    waitForUpOrCancellation()?.consume()
                     if (!job.isCompleted) job.cancel()
                     progress = 0f
                 }

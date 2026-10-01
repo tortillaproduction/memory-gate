@@ -140,7 +140,7 @@ UI 上のスケジュール選択肢は次の 4 種類:
 
 ## 6. インストール済みアプリの一覧
 
-- `AndroidManifest.xml` に `<queries>` で `MAIN` / `LAUNCHER` の intent を宣言する（`QUERY_ALL_PACKAGES` は使わない）
+- `AndroidManifest.xml` に `<queries>` で `MAIN` / `LAUNCHER` の intent と、`mailto:` の `ACTION_SENDTO` の intent を宣言する（`QUERY_ALL_PACKAGES` は使わない）
 - ランチャーに表示されるアプリを取得し、アプリ名・アイコン・パッケージ名を一覧にする。アプリ名順に並べ、検索ボックスで絞り込めるようにする
 - **除外アプリ**（監視対象アプリとして選択不可。一覧には表示しない）:
   - 自アプリ
@@ -149,13 +149,25 @@ UI 上のスケジュール選択肢は次の 4 種類:
   - ホームアプリ（`CATEGORY_HOME` を解決したもの）
   - IME（`InputMethodManager.enabledInputMethodList`）
   - 固定リスト: `jp.naver.line.android`、`com.android.settings`、`com.android.emergency`、`com.google.android.dialer`、`com.android.dialer`、`com.google.android.apps.messaging`、`com.android.contacts`、`com.google.android.contacts`、`com.samsung.android.dialer`、`com.samsung.android.messaging`
-  - 除外判定は `ExcludedApps` のような 1 か所にまとめること
-- 誘導先（type=APP）の選択にも同じ一覧を使う（こちらは自アプリ以外を除外しない、単一選択）
+  - メールアプリ: `mailto:` の `ACTION_SENDTO` に応答するアプリと、固定リスト `com.google.android.gm`、`com.microsoft.office.outlook`、`jp.co.yahoo.android.ymail`、`com.samsung.android.email.provider`、`com.android.email`
+  - システムアプリ（下記の「システムアプリも表示」がオフのときのみ除外）:
+    - `ApplicationInfo.FLAG_SYSTEM` があり、かつ `FLAG_UPDATED_SYSTEM_APP` がないアプリ（時計・電卓・カメラ・ファイル管理・メーカー独自ツールなど）
+    - OS 基盤アプリ: `com.android.vending`、`com.google.android.gms`、`com.google.android.googlequicksearchbox`
+  - 除外判定は `ExcludedApps` のような 1 か所にまとめること。端末のパッケージ情報は差し替え可能にしてユニットテストする
+- 監視対象アプリの選択画面には「システムアプリも表示」スイッチを置く（既定はオフ）。オンにするとシステムアプリも一覧に表示する。オンにしても、メールアプリと上記のその他の除外アプリ（電話・SMS・LINE など）は表示しない
+- 誘導先（type=APP）の選択にも同じ一覧を使う（こちらは自アプリ以外を除外しない、単一選択。メール・システムアプリの除外も適用しない）
 - 誘導先として登録されているアプリは、監視対象アプリとして選択不可にする（逆も同様）。選択不可の理由を小さく表示する
 
 ---
 
 ## 7. 画面構成
+
+### 7.0 全画面共通: システムナビゲーションバー
+
+- ゲート画面を含むアプリ内のすべての画面で、システムナビゲーションバー（戻る・ホーム・履歴のボタンとその背景の帯）を既定で非表示にする（`WindowInsetsControllerCompat`）
+- 画面上のボタンや入力欄以外の部分をタップするたびに、ナビゲーションバーの表示・非表示を切り替える。画面の端からのスワイプでは OS 標準の動作どおり一時的に表示される（`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`）
+- ナビゲーションバーが表示されているときも、アプリのボタンが帯に重ならないようにする（下部のボタン領域などに `navigationBarsPadding` / WindowInsets を適用する）
+- ステータスバー（画面上部）は常に表示する
 
 ### 7.1 オンボーディング（初回起動時。設定画面からいつでも再表示できる）
 
@@ -194,7 +206,7 @@ UI 上のスケジュール選択肢は次の 4 種類:
 ### 7.4 監視対象アプリの選択
 
 - アイコン・アプリ名・チェックボックスの一覧（6 の除外ルールを適用）
-- 検索ボックス、「選択中のみ表示」フィルタ
+- 検索ボックス、「選択中のみ表示」フィルタ、「システムアプリも表示」スイッチ（既定はオフ）
 
 ### 7.5 ゲート（4.4〜4.6 参照）
 

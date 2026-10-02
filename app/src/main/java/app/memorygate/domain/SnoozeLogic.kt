@@ -111,3 +111,16 @@ object SnoozeLogic {
         return day.atStartOfDay(zone).plusMinutes(start.toLong() % MINUTES_PER_DAY).toInstant()
     }
 }
+
+/** スヌーズ用ゲートの背景（SPEC 7.5） */
+object SnoozeBackground {
+    private const val DAY_START_MINUTES = 6 * 60
+    private const val DAY_END_MINUTES = 18 * 60
+
+    /** 6:00〜18:00（18:00 は含まない）は昼の空、それ以外は夜の星空 */
+    fun isDaytime(now: Instant, zone: ZoneId): Boolean {
+        val t = now.atZone(zone)
+        val minute = t.hour * 60 + t.minute
+        return minute in DAY_START_MINUTES until DAY_END_MINUTES
+    }
+}

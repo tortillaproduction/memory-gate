@@ -212,3 +212,18 @@ class SnoozeLogicTest {
         assertEquals(at(1), SnoozeLogic.nextSnoozeReadyAt(listOf(t), at(1), zone))
     }
 }
+
+class SnoozeBackgroundTest {
+    private val zone: ZoneId = ZoneId.of("Asia/Tokyo")
+    private fun at(hour: Int, minute: Int = 0): Instant =
+        LocalDateTime.of(LocalDate.of(2026, 10, 2), LocalTime.of(hour, minute)).atZone(zone).toInstant()
+
+    @Test
+    fun dayFrom6To18() {
+        assertFalse(SnoozeBackground.isDaytime(at(5, 59), zone))
+        assertTrue(SnoozeBackground.isDaytime(at(6, 0), zone))
+        assertTrue(SnoozeBackground.isDaytime(at(17, 59), zone))
+        assertFalse(SnoozeBackground.isDaytime(at(18, 0), zone))
+        assertFalse(SnoozeBackground.isDaytime(at(0, 0), zone))
+    }
+}

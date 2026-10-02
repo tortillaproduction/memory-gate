@@ -1,5 +1,6 @@
 package app.memorygate.ui.edit
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,7 @@ import app.memorygate.domain.Target
 import app.memorygate.domain.TargetFormat
 import app.memorygate.domain.TargetType
 import app.memorygate.domain.TargetValidation
+import app.memorygate.image.SnoozeImageSession
 import app.memorygate.ui.apps.AppRowState
 import app.memorygate.ui.apps.filterByQuery
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +48,14 @@ data class TargetEditUiState(
     val titleError: String? = null,
     val urlError: String? = null,
     val appError: String? = null,
+    /** スヌーズ（OFF にしても設定値は保持する） */
+    val snoozeEnabled: Boolean = false,
+    val snoozeIntervalMinutes: Int = Target.DEFAULT_SNOOZE_INTERVAL_MINUTES,
+    val snoozeStartMinutes: Int = Target.DEFAULT_SNOOZE_START_MINUTES,
+    val snoozeEndMinutes: Int = Target.DEFAULT_SNOOZE_END_MINUTES,
+    val snoozeImagePath: String? = null,
+    val importingImage: Boolean = false,
+    val imageError: String? = null,
     /** 保存・削除が終わって画面を閉じるべき状態 */
     val finished: Boolean = false,
 )
@@ -63,6 +73,8 @@ class TargetEditViewModel(
 
     private val targetId: Long = savedStateHandle.get<Long>(ARG_TARGET_ID) ?: 0L
     private var original: Target? = null
+    private var imageSession = SnoozeImageSession(original = null)
+    private var saved = false
 
     private val _uiState = MutableStateFlow(TargetEditUiState())
     val uiState: StateFlow<TargetEditUiState> = _uiState.asStateFlow()
@@ -96,6 +108,7 @@ class TargetEditViewModel(
         val clock = container.clock
         val target = if (targetId != 0L) container.targetRepository.getTarget(targetId) else null
         original = target
+        imageSession = SnoozeImageSession(original = target?.snoozeImagePath)
         if (target == null) {
             _uiState.value = TargetEditUiState(
                 loading = false,
@@ -124,6 +137,11 @@ class TargetEditViewModel(
             dayOfWeek = target.dayOfWeek ?: today.dayOfWeek.value,
             lastVisitedLabel = lastVisitedLabel(target.lastVisitedAt),
             hasVisited = target.lastVisitedAt != null,
+            snoozeEnabled = target.snoozeEnabled,
+            snoozeIntervalMinutes = target.effectiveSnoozeIntervalMinutes,
+            snoozeStartMinutes = target.effectiveSnoozeStartMinutes,
+            snoozeEndMinutes = target.effectiveSnoozeEndMinutes,
+            snoozeImagePath = target.snoozeImagePath,
         )
     }
 
@@ -139,6 +157,30 @@ class TargetEditViewModel(
     fun setUrl(value: String) = _uiState.update { it.copy(url = value, urlError = null) }
     fun setSchedule(value: ScheduleOption) = _uiState.update { it.copy(schedule = value) }
     fun setDayOfWeek(value: Int) = _uiState.update { it.copy(dayOfWeek = value) }
+
+    fun setSnoozeEnabled(value: Boolean) = _uiState.update { it.copy(snoozeEnabled = value) }
+    fun setSnoozeInterval(minutes: Int) = _uiState.update { it.copy(snoozeIntervalMinutes = minutes) }
+    fun setSnoozeStart(minutes: Int) = _uiState.update { it.copy(snoozeStartMinutes = minutes) }
+    fun setSnoozeEnd(minutes: Int) = _uiState.update { it.copy(snoozeEndMinutes = minutes) }
+
+    /** Photo Picker で選んだ画像を縮小してアプリ内部にコピーする（保存するまで元の画像は残す） */
+    fun importSnoozeImage(uri: Uri) {
+        _uiState.update { it.copy(importingImage = true, imageError = null) }
+        viewModelScope.launch {
+            val path = container.snoozeImageStore.import(uri)
+            if (path != null) imageSession.onImported(path)
+            _uiState.update {
+                if (path != null) {
+                    it.copy(importingImage = false, snoozeImagePath = path)
+                } else {
+                    it.copy(importingImage = false, imageError = "画像を読み込めませんでした")
+                }
+            }
+        }
+    }
+
+    /** 「画像を削除」（ファイルは保存したときに削除する） */
+    fun removeSnoozeImage() = _uiState.update { it.copy(snoozeImagePath = null, imageError = null) }
 
     fun selectApp(app: InstalledApp) =
         _uiState.update { it.copy(packageName = app.packageName, appLabel = app.label, appError = null) }
@@ -206,8 +248,17 @@ class TargetEditViewModel(
                 dayOfWeek = if (state.schedule == ScheduleOption.WEEKLY) state.dayOfWeek else null,
                 lastVisitedAt = base?.lastVisitedAt,
                 createdAt = base?.createdAt ?: container.clock.millis(),
+                snoozeEnabled = state.snoozeEnabled,
+                snoozeIntervalMinutes = state.snoozeIntervalMinutes,
+                snoozeStartMinutes = state.snoozeStartMinutes,
+                snoozeEndMinutes = state.snoozeEndMinutes,
+                snoozeImagePath = state.snoozeImagePath,
+                lastSnoozeShownAt = base?.lastSnoozeShownAt,
             )
             container.targetRepository.save(target)
+            saved = true
+            // 使わなくなった画像（変更前の画像・選び直した画像）を削除する
+            imageSession.filesToDeleteOnSave(state.snoozeImagePath).forEach { container.snoozeImageStore.delete(it) }
             _uiState.update { it.copy(finished = true) }
         }
     }
@@ -216,7 +267,19 @@ class TargetEditViewModel(
         val target = original ?: return
         viewModelScope.launch {
             container.targetRepository.delete(target.id)
+            saved = true
+            imageSession.filesToDeleteOnTargetDeleted().forEach { container.snoozeImageStore.delete(it) }
             _uiState.update { it.copy(finished = true) }
+        }
+    }
+
+    override fun onCleared() {
+        // 保存せずに閉じた場合は、この編集中に取り込んだ画像を削除する
+        if (!saved) {
+            val files = imageSession.filesToDeleteOnDiscard()
+            if (files.isNotEmpty()) {
+                container.applicationScope.launch { files.forEach { container.snoozeImageStore.delete(it) } }
+            }
         }
     }
 

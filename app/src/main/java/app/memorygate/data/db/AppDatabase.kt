@@ -7,8 +7,8 @@ import androidx.room3.RoomDatabase
 
 @Database(
     entities = [TargetEntity::class, GuardedAppEntity::class],
-    version = 1,
-    exportSchema = false,
+    version = 2,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun targetDao(): TargetDao
@@ -16,6 +16,8 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "memory_gate.db").build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "memory_gate.db")
+                .addMigrations(*Migrations.ALL)
+                .build()
     }
 }

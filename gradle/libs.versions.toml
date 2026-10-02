@@ -14,6 +14,7 @@ browser = "1.10.0"
 coroutines = "1.11.0"
 junit = "4.13.2"
 orgJson = "20260814"
+sqliteJdbc = "3.53.4.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -38,8 +39,11 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 # ユニットテスト用（android.jar の org.json はスタブのため）。アプリ本体には含めない
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
+# マイグレーションのユニットテスト用（JVM 上の SQLite）。アプリ本体には含めない
+sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqliteJdbc" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room = { id = "androidx.room3", version.ref = "room" }

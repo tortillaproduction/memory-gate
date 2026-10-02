@@ -53,6 +53,14 @@ SNS 等の暇つぶしアプリ（以下「監視対象アプリ」）を開い�
 | dayOfWeek | Int? | WEEKLY のとき 1(月)〜7(日)。`java.time.DayOfWeek` の値 |
 | lastVisitedAt | Long? | 最後にゲートから開いた日時 (epoch millis)。null = 未訪問 |
 | createdAt | Long | 作成日時 (epoch millis) |
+| snoozeEnabled | Boolean（既定 false） | スヌーズの ON/OFF。OFF にしても下記のスヌーズ設定は保持する |
+| snoozeIntervalMinutes | Int? | スヌーズの間隔。1 / 5 / 30 / 60 のいずれか（null は既定の 30） |
+| snoozeStartMinutes | Int? | スヌーズする時間帯の開始（0:00 からの分数）。既定 540（9:00） |
+| snoozeEndMinutes | Int? | スヌーズする時間帯の終了（0:00 からの分数）。既定 1320（22:00） |
+| snoozeImagePath | String? | スヌーズ用ゲートに表示する画像（アプリ内部ストレージのファイルパス） |
+| lastSnoozeShownAt | Long? | スヌーズ用ゲートを最後に表示した日時 (epoch millis) |
+
+スヌーズの列は v0.1.4 で追加した（Room の DB バージョン 1 → 2）。既存のデータを保持するマイグレーションを用意し、書き出したスキーマ（`app/schemas`）を使ってユニットテストで検証する。
 
 UI 上のスケジュール選択肢は次の 4 種類:
 「1日ごと」「3日ごと」「1週間ごと」「毎週〇曜日」（曜日を選択）

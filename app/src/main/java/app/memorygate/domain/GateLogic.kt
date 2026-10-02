@@ -58,14 +58,15 @@ object GateLogic {
         }
     }
 
+    /** 4.2 の並び順: lastVisitedAt の昇順（null = 未訪問が最優先）→ 同順位は createdAt の昇順 */
+    val GATE_ORDER: Comparator<Target> =
+        compareBy<Target, Long?>(nullsFirst()) { it.lastVisitedAt }.thenBy { it.createdAt }
+
     /** 4.2 ゲートに表示する誘導先 */
     fun selectGateTargets(targets: List<Target>, today: LocalDate, zone: ZoneId): List<Target> =
         targets
             .filter { isDue(it, today, zone) }
-            .sortedWith(
-                compareBy<Target, Long?>(nullsFirst()) { it.lastVisitedAt }
-                    .thenBy { it.createdAt },
-            )
+            .sortedWith(GATE_ORDER)
             .take(MAX_GATE_TARGETS)
 
     /** 4.3 ゲートを表示するか */

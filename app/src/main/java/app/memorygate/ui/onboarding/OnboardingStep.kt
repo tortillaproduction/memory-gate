@@ -34,3 +34,24 @@ object OnboardingSteps {
             }
         }
 }
+
+/** オンボーディングで「戻る」を押したときの動作（SPEC 7.1） */
+enum class OnboardingBackAction {
+    /** 前のステップへ戻る */
+    PREVIOUS_STEP,
+
+    /** ホーム画面へ戻る（メニューなどから再表示したとき） */
+    HOME,
+
+    /** アプリを閉じる（初回起動時。次に起動したときは再びオンボーディングから始まる） */
+    FINISH_APP,
+    ;
+
+    companion object {
+        fun decide(stepIndex: Int, onboardingCompleted: Boolean): OnboardingBackAction = when {
+            stepIndex > 0 -> PREVIOUS_STEP
+            onboardingCompleted -> HOME
+            else -> FINISH_APP
+        }
+    }
+}

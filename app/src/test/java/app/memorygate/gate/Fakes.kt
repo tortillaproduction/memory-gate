@@ -22,6 +22,8 @@ class FakeTargetRepository(initial: List<Target> = emptyList()) : TargetReposito
     override suspend fun delete(id: Long) = targets.update { list -> list.filter { it.id != id } }
     override suspend fun setLastVisitedAt(id: Long, lastVisitedAt: Long?) =
         targets.update { list -> list.map { if (it.id == id) it.copy(lastVisitedAt = lastVisitedAt) else it } }
+    override suspend fun setLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?) =
+        targets.update { list -> list.map { if (it.id == id) it.copy(lastSnoozeShownAt = lastSnoozeShownAt) else it } }
 }
 
 class FakeGuardedAppRepository(initial: Set<String> = emptySet()) : GuardedAppRepository {

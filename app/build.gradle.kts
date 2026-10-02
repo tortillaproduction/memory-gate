@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 // 署名情報は環境変数から取得する（CI の Secrets）。未設定なら release の署名設定をスキップする。
@@ -62,6 +63,11 @@ android {
     }
 }
 
+room3 {
+    // マイグレーションのテストに使うため、スキーマを書き出してリポジトリに含める
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -84,4 +90,5 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.org.json)
+    testImplementation(libs.sqlite.jdbc)
 }

@@ -15,6 +15,7 @@ interface TargetRepository {
     suspend fun save(target: Target): Long
     suspend fun delete(id: Long)
     suspend fun setLastVisitedAt(id: Long, lastVisitedAt: Long?)
+    suspend fun setLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?)
 }
 
 class RoomTargetRepository(private val dao: TargetDao) : TargetRepository {
@@ -35,4 +36,7 @@ class RoomTargetRepository(private val dao: TargetDao) : TargetRepository {
 
     override suspend fun setLastVisitedAt(id: Long, lastVisitedAt: Long?) =
         dao.updateLastVisitedAt(id, lastVisitedAt)
+
+    override suspend fun setLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?) =
+        dao.updateLastSnoozeShownAt(id, lastSnoozeShownAt)
 }

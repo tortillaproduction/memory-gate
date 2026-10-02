@@ -177,6 +177,17 @@ fun TargetEditScreen(
                 DayOfWeekChips(selected = state.dayOfWeek, onSelect = viewModel::setDayOfWeek)
             }
 
+            HorizontalDivider()
+            SnoozeSection(
+                state = state,
+                onEnabledChange = viewModel::setSnoozeEnabled,
+                onIntervalChange = viewModel::setSnoozeInterval,
+                onStartChange = viewModel::setSnoozeStart,
+                onEndChange = viewModel::setSnoozeEnd,
+                onImagePicked = viewModel::importSnoozeImage,
+                onImageRemoved = viewModel::removeSnoozeImage,
+            )
+
             if (!state.isNew) {
                 HorizontalDivider()
                 SectionTitle("最終訪問日")
@@ -187,7 +198,7 @@ fun TargetEditScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            Button(onClick = viewModel::save, modifier = Modifier.fillMaxWidth()) { Text("保存") }
+            Button(onClick = viewModel::save, enabled = !state.importingImage, modifier = Modifier.fillMaxWidth()) { Text("保存") }
         }
     }
 

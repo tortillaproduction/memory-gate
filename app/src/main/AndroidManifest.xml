@@ -54,6 +54,15 @@
             android:taskAffinity="app.memorygate.gate"
             android:theme="@style/Theme.MemoryGate" />
 
+        <!-- スヌーズ用ゲート。通常のゲートとは別のタスクで 1 つだけ表示する -->
+        <activity
+            android:name=".gate.SnoozeGateActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="app.memorygate.snooze"
+            android:theme="@style/Theme.MemoryGate" />
+
         <service
             android:name=".service.GateAccessibilityService"
             android:exported="true"

@@ -18,40 +18,45 @@ import app.memorygate.ui.common.NavigationBars
 import app.memorygate.ui.theme.MemoryGateTheme
 
 /**
- * ゲート画面（SPEC 4.4〜4.6、7.5）。
- * singleTask のため、表示中に再度起動された場合は [onNewIntent] で内容だけ更新する。
+ * スヌーズ用ゲート（SPEC 7.5）。通常のゲートとは別の Activity・別のタスクにする。
+ * 「開く」・緊急退避・戻る操作は通常のゲートと同じ（[GateActions]）。
  */
-class GateActivity : ComponentActivity() {
+class SnoozeGateActivity : ComponentActivity() {
 
-    private val viewModel: GateViewModel by viewModels {
-        viewModelFactory { initializer { GateViewModel(appContainer) } }
+    private val viewModel: SnoozeGateViewModel by viewModels {
+        viewModelFactory { initializer { SnoozeGateViewModel(appContainer) } }
     }
 
-    /** 二重タップで複数の誘導先を開かないようにする */
+    /** 二重タップで開かないようにする */
     private var opening = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 背景をステータスバー・ナビゲーションバーの裏まで表示する
         enableEdgeToEdge()
 
         // 戻るボタン / 戻るジェスチャーは緊急退避と同じくホームへ移動する
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() = goHome()
+                override fun handleOnBackPressed() = GateActions.goHome(this@SnoozeGateActivity)
             },
         )
 
-        viewModel.refresh()
+        showTarget(intent)
         setContent {
             MemoryGateTheme {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-                // 表示中に期限切れがなくなった場合（誘導先の削除など）は閉じる
+                // 誘導先が削除された場合は閉じる
                 LaunchedEffect(state) {
-                    if (!state.loading && state.items.isEmpty() && !opening) finish()
+                    if (!state.loading && state.target == null && !opening) finish()
                 }
                 NavigationBarTapToggle {
-                    GateScreen(state = state, onOpen = ::openTarget, onEscape = ::goHome)
+                    SnoozeGateScreen(
+                        state = state,
+                        onOpen = ::openTarget,
+                        onEscape = { GateActions.goHome(this) },
+                    )
                 }
             }
         }
@@ -66,24 +71,26 @@ class GateActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        viewModel.refresh()
+        showTarget(intent)
     }
 
-    /** 4.4 ゲートのボタンを押したとき */
-    private fun openTarget(item: GateItem) {
+    private fun showTarget(intent: Intent) {
+        val id = intent.getLongExtra(EXTRA_TARGET_ID, -1L)
+        if (id < 0) finish() else viewModel.show(id)
+    }
+
+    /** 4.4 と同じ: lastVisitedAt と gatePassedDate を更新して誘導先を開く */
+    private fun openTarget() {
         if (opening) return
-        if (GateActions.openTarget(this, item.target)) {
+        val target = viewModel.uiState.value.target ?: return
+        if (GateActions.openTarget(this, target)) {
             opening = true
         } else {
-            // 起動できない場合は lastVisitedAt / gatePassedDate を更新しない
-            viewModel.refresh()
+            viewModel.show(target.id)
         }
     }
 
-    /** 4.5 緊急退避 / 4.6 戻る */
-    private fun goHome() = GateActions.goHome(this)
-
     companion object {
-        const val EXTRA_SOURCE_PACKAGE = "sourcePackage"
+        const val EXTRA_TARGET_ID = "targetId"
     }
 }

@@ -19,10 +19,19 @@ data class OnboardingUiState(
     val done: Set<OnboardingStep> = emptySet(),
     val manufacturer: Manufacturer? = null,
     val targetTitles: List<String> = emptyList(),
+    /** 読み込み前は null */
+    val onboardingCompleted: Boolean? = null,
 ) {
     val current: OnboardingStep get() = steps[index]
     val isLast: Boolean get() = index == steps.lastIndex
 }
+
+private data class Progress(
+    val index: Int,
+    val visited: Set<OnboardingStep>,
+    val status: SystemStatus,
+    val completed: Boolean,
+)
 
 class OnboardingViewModel(
     private val container: AppContainer,
@@ -41,11 +50,11 @@ class OnboardingViewModel(
     private val visited = MutableStateFlow(setOf(steps[index.value]))
 
     val uiState: StateFlow<OnboardingUiState> = combine(
-        combine(index, visited, systemStatus) { i, v, s -> Triple(i, v, s) },
+        combine(index, visited, systemStatus, container.settingsRepository.onboardingCompleted, ::Progress),
         container.targetRepository.observeTargets(),
         container.guardedAppRepository.observeGuardedPackages(),
         container.settingsRepository.manufacturerStepDone,
-    ) { (index, visited, status), targets, guarded, manufacturerDone ->
+    ) { (index, visited, status, completed), targets, guarded, manufacturerDone ->
         val done = steps.filter { step ->
             when (step) {
                 OnboardingStep.INTRO -> visited.any { it != OnboardingStep.INTRO }
@@ -64,6 +73,7 @@ class OnboardingViewModel(
             done = done,
             manufacturer = manufacturer,
             targetTitles = targets.map { it.title },
+            onboardingCompleted = completed,
         )
     }.stateIn(
         viewModelScope,
@@ -77,7 +87,17 @@ class OnboardingViewModel(
     }
 
     fun next() = goTo(index.value + 1)
-    fun back() = goTo(index.value - 1)
+
+    /**
+     * 「戻る」ボタン・システムの戻る操作。2 ステップ目以降は前のステップへ戻り、
+     * 最初のステップでは画面を抜ける動作を返す（読み込み前は何もしない）。
+     */
+    fun onBack(): OnboardingBackAction? {
+        val completed = uiState.value.onboardingCompleted ?: return null
+        val action = OnboardingBackAction.decide(index.value, completed)
+        if (action == OnboardingBackAction.PREVIOUS_STEP) goTo(index.value - 1)
+        return action
+    }
 
     fun goTo(newIndex: Int) {
         if (newIndex !in steps.indices) return

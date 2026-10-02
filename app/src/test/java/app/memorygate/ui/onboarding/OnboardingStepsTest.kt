@@ -44,3 +44,22 @@ class OnboardingStepsTest {
         )
     }
 }
+
+class OnboardingBackActionTest {
+
+    @Test
+    fun `2ステップ目以降は前のステップへ戻る`() {
+        assertEquals(OnboardingBackAction.PREVIOUS_STEP, OnboardingBackAction.decide(1, onboardingCompleted = false))
+        assertEquals(OnboardingBackAction.PREVIOUS_STEP, OnboardingBackAction.decide(5, onboardingCompleted = true))
+    }
+
+    @Test
+    fun `最初のステップで再表示時はホームへ戻る`() {
+        assertEquals(OnboardingBackAction.HOME, OnboardingBackAction.decide(0, onboardingCompleted = true))
+    }
+
+    @Test
+    fun `最初のステップで初回起動時はアプリを閉じる`() {
+        assertEquals(OnboardingBackAction.FINISH_APP, OnboardingBackAction.decide(0, onboardingCompleted = false))
+    }
+}

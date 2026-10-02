@@ -1,5 +1,6 @@
 package app.memorygate.data.db
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import app.memorygate.domain.ScheduleType
@@ -18,6 +19,12 @@ data class TargetEntity(
     val dayOfWeek: Int?,
     val lastVisitedAt: Long?,
     val createdAt: Long,
+    @ColumnInfo(defaultValue = "0") val snoozeEnabled: Boolean = false,
+    val snoozeIntervalMinutes: Int? = null,
+    val snoozeStartMinutes: Int? = null,
+    val snoozeEndMinutes: Int? = null,
+    val snoozeImagePath: String? = null,
+    val lastSnoozeShownAt: Long? = null,
 )
 
 @Entity(tableName = "guarded_apps")
@@ -36,6 +43,12 @@ fun TargetEntity.toDomain() = Target(
     dayOfWeek = dayOfWeek,
     lastVisitedAt = lastVisitedAt,
     createdAt = createdAt,
+    snoozeEnabled = snoozeEnabled,
+    snoozeIntervalMinutes = snoozeIntervalMinutes,
+    snoozeStartMinutes = snoozeStartMinutes,
+    snoozeEndMinutes = snoozeEndMinutes,
+    snoozeImagePath = snoozeImagePath,
+    lastSnoozeShownAt = lastSnoozeShownAt,
 )
 
 fun Target.toEntity() = TargetEntity(
@@ -49,4 +62,10 @@ fun Target.toEntity() = TargetEntity(
     dayOfWeek = dayOfWeek,
     lastVisitedAt = lastVisitedAt,
     createdAt = createdAt,
+    snoozeEnabled = snoozeEnabled,
+    snoozeIntervalMinutes = snoozeIntervalMinutes,
+    snoozeStartMinutes = snoozeStartMinutes,
+    snoozeEndMinutes = snoozeEndMinutes,
+    snoozeImagePath = snoozeImagePath,
+    lastSnoozeShownAt = lastSnoozeShownAt,
 )

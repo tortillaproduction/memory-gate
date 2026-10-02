@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -36,11 +37,14 @@ private const val HOLD_MILLIS = 3_000L
  * アニメーション速度の設定に影響されないよう、フレーム時刻から経過時間を計算する。
  */
 @Composable
-fun EmergencyEscapeButton(onTrigger: () -> Unit, modifier: Modifier = Modifier) {
+fun EmergencyEscapeButton(
+    onTrigger: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
     var progress by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
     val currentOnTrigger by rememberUpdatedState(onTrigger)
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
         modifier = modifier

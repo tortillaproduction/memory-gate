@@ -14,6 +14,7 @@ import app.memorygate.data.db.AppDatabase
 import app.memorygate.gate.GateInteractor
 import app.memorygate.gate.GateStateCache
 import app.memorygate.gate.TargetLauncher
+import app.memorygate.image.SnoozeImageStore
 import app.memorygate.update.UpdateChecker
 import app.memorygate.update.UrlConnectionHttpClient
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,7 @@ class AppContainer(context: Context) {
     }
     val gateInteractor: GateInteractor by lazy { GateInteractor(targetRepository, settingsRepository, clock) }
     val targetLauncher: TargetLauncher by lazy { TargetLauncher(appContext) }
+    val snoozeImageStore: SnoozeImageStore by lazy { SnoozeImageStore(appContext) }
 
     /** 新しいバージョンの確認。ホーム画面からだけ使う */
     val updateChecker: UpdateChecker by lazy {

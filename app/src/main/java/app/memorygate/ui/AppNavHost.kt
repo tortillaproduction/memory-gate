@@ -1,5 +1,6 @@
 package app.memorygate.ui
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,6 +22,7 @@ import app.memorygate.ui.onboarding.OnboardingViewModel
 @Composable
 fun AppNavHost(startWithOnboarding: Boolean) {
     val navController = rememberNavController()
+    val activity = LocalActivity.current
     NavHost(
         navController = navController,
         startDestination = if (startWithOnboarding) Routes.ONBOARDING else Routes.HOME,
@@ -57,6 +59,15 @@ fun AppNavHost(startWithOnboarding: Boolean) {
                         popUpTo(navController.graph.id) { inclusive = true }
                     }
                 },
+                onExitToHome = {
+                    // メニューから開いた場合はホームが下にある。念のため、なければホームへ移動する
+                    if (!navController.popBackStack(Routes.HOME, inclusive = false)) {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                        }
+                    }
+                },
+                onExitApp = { activity?.finish() },
             )
         }
         composable(

@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -52,9 +53,21 @@ fun OnboardingScreen(
     guardedAppsViewModel: GuardedAppsViewModel,
     onAddTarget: () -> Unit,
     onFinished: () -> Unit,
+    onExitToHome: () -> Unit,
+    onExitApp: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val onBack = {
+        when (viewModel.onBack()) {
+            OnboardingBackAction.HOME -> onExitToHome()
+            OnboardingBackAction.FINISH_APP -> onExitApp()
+            OnboardingBackAction.PREVIOUS_STEP, null -> Unit
+        }
+    }
+    // システムの戻る操作（ボタン・ジェスチャー）も「戻る」ボタンと同じ動作にする
+    BackHandler(onBack = onBack)
 
     LifecycleResumeEffect(Unit) {
         viewModel.updateSystemStatus(SystemStatus.read(context))
@@ -75,7 +88,7 @@ fun OnboardingScreen(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(onClick = viewModel::back, enabled = state.index > 0) { Text("戻る") }
+                TextButton(onClick = onBack) { Text("戻る") }
                 if (state.isLast) {
                     Button(onClick = { viewModel.complete(onFinished) }) { Text("完了") }
                 } else {

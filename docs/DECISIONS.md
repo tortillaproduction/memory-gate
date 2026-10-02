@@ -115,3 +115,10 @@ SPEC.md に明記されていない判断と、その理由を記録する。
 - **スキーマを書き出す（`exportSchema = true`、Room 3 の Gradle プラグインで `app/schemas` に出力）**: マイグレーションのテストで変更前（v1）と変更後（v2）のスキーマを使うため。スキーマファイルはリポジトリに含める。
 - **マイグレーションのテストは JVM のユニットテストで行う**: Room の `MigrationTestHelper`（Android 版）は端末上のテスト（androidTest）が必要で、CI では実行していないため。テスト専用に `org.xerial:sqlite-jdbc` を追加し、v1 スキーマで作った DB に実際の `Migrations.MIGRATION_1_2` を流して、列の構成が v2 スキーマと一致すること・既存データが残ることを確認する。Migration が使う `execSQL` だけを JDBC で実装したアダプターを使う。アプリ本体には含めない。
 - **追加した列は既存の行では `snoozeEnabled = 0`、他は NULL にする**: 時間帯・間隔の NULL は既定値（9:00〜22:00、30 分）として扱う（`Target.effectiveSnooze*`）。マイグレーションで既定値を書き込まないのは、既定値を将来変える余地を残すため。
+
+## v0.1.4: スヌーズの判定
+
+- **判定は `SnoozeLogic`（純粋な関数）にまとめる**: `isInSnoozeWindow` / `isSnoozeReady` / `selectSnoozeTarget` に加え、通常のゲートとの優先順位を決める `decideGate` と、タイマー用の `nextSnoozeReadyAt` を用意した。並び順は通常のゲートと同じ比較器（`GateLogic.GATE_ORDER`）を共有する。
+- **時間帯は開始を含み、終了を含まない**（9:00〜22:00 なら 9:00:00 から 21:59:59 まで）。判定は分単位（秒は切り捨て）。
+- **`nextSnoozeReadyAt` は「期限切れになる日の 0:00」「前回表示 + 間隔」「時間帯の開始」の最も遅い時刻**: 期限切れは訪問するまで続くので、時間帯の開始まで後ろにずらしても条件は崩れない。
+- **`lastSnoozeShownAt` が未来（時計の巻き戻り）の場合は仕様どおり `now - lastSnoozeShownAt` が間隔に満たないため表示しない**: 時計が追いつくまで待つことになる。実害が出るようなら、未来の場合は表示可能とみなす変更を提案する。

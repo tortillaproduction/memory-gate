@@ -136,6 +136,24 @@ UI 上のスケジュール選択肢は次の 4 種類:
 - Activity 設定: `excludeFromRecents="true"`、`launchMode="singleTask"`、専用の `taskAffinity`、`noHistory` は付けない
 - すでにゲートが表示中なら再起動せず、内容だけ更新する（`onNewIntent`）
 
+### 4.7 スヌーズ
+
+期限切れの誘導先を、通常のゲートを通過した日（`gatePassedDate == today`）でも、指定した時間帯・間隔でもう一度知らせる。判定は `java.time.Clock` を注入してユニットテストする。
+
+- `isInSnoozeWindow(target, now)`: 現在時刻（ローカル時刻の 0:00 からの分数）が `snoozeStartMinutes`〜`snoozeEndMinutes` に入っているか（開始を含み、終了を含まない）
+  - 開始 < 終了: 通常の範囲
+  - 開始 > 終了: 日付をまたぐ（例: 22:00〜2:00）
+  - 開始 == 終了: 24 時間ずっと
+- `isSnoozeReady(target, now)`: 次のすべてを満たす
+  - `snoozeEnabled`
+  - `isDue`（4.1）
+  - `isInSnoozeWindow`
+  - `lastSnoozeShownAt` が null、または `now - lastSnoozeShownAt >= snoozeIntervalMinutes`
+- `selectSnoozeTarget(targets, now)`: `isSnoozeReady` のもののうち、4.2 と同じ並び順で先頭の 1 件
+- 通常のゲート（4.3）の表示条件を満たすときは、通常のゲートを優先する。スヌーズ用ゲートは、通常のゲートが出ないとき（`gatePassedDate == today` など）に判定する。監視対象アプリ以外ではどちらも出さない
+- `nextSnoozeReadyAt(targets, now)`: スヌーズ ON の誘導先の中で、次にスヌーズが可能になる最も早い時刻（期限切れになる日の 0:00、前回表示 + 間隔、時間帯の開始のうち遅いもの）。5 章のタイマーに使う
+- スヌーズ用ゲートの「開く」ボタンを押したときは 4.4 と同じ（`lastVisitedAt` と `gatePassedDate` を更新し、誘導先を開く）。緊急退避・戻る操作は 4.5・4.6 と同じ
+
 ---
 
 ## 5. アプリ起動の検知（AccessibilityService）

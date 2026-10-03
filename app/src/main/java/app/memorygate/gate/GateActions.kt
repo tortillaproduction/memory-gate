@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import app.memorygate.appContainer
 import app.memorygate.domain.Target
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 
 /**
@@ -27,6 +28,13 @@ internal object GateActions {
             container.gateInteractor.onTargetOpened(target.id)
             activity.finish()
             val result = launcher.open(activity, target)
+            if (result.opened) {
+                // 開けたらスヌーズを休止する（通常のゲート・スヌーズ用ゲートのどちらでも。v0.1.8）。
+                // 開いたアプリのウィンドウイベントより先にキャッシュへ反映されるよう、最初の中断まで同期的に実行する
+                container.applicationScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    container.gateInteractor.onTargetLaunched()
+                }
+            }
             if (fromSnooze && result.opened) {
                 // 開いた先のアプリでは、前回の表示から間隔が経過するまで切り替え時の即時表示をしない（SPEC 5 章）。
                 // 開いたアプリのウィンドウイベントより先に反映されるよう、同じメインスレッドの処理の中で記録する

@@ -51,8 +51,17 @@ object SnoozeLogic {
     }
 
     /**
-     * スヌーズ用ゲートを出せる状態か: スヌーズ ON・時間帯の中・前回の表示から間隔が経過。
-     * [immediate]（監視対象アプリへの切り替え時の即時表示。SPEC 5 章）なら間隔は問わない
+     * 「開く」の後の休止中か（v0.1.8）: `now < snoozePausedAt + 間隔` の間は、スヌーズ用ゲートを一切出さない
+     * （切り替え時の即時表示も、使用中の定期表示も）
+     */
+    fun isPaused(settings: SnoozeSettings, pausedAt: Long?, now: Instant): Boolean {
+        pausedAt ?: return false
+        return now.toEpochMilli() < pausedAt + settings.intervalMinutes * MILLIS_PER_MINUTE
+    }
+
+    /**
+     * スヌーズ用ゲートを出せる状態か: スヌーズ ON・時間帯の中・「開く」の後の休止中でない・前回の表示から間隔が経過。
+     * [immediate]（監視対象アプリへの切り替え時の即時表示。SPEC 5 章）なら、前回の表示からの間隔は問わない（休止は問う）
      */
     fun isSnoozeReady(
         settings: SnoozeSettings,
@@ -60,8 +69,10 @@ object SnoozeLogic {
         now: Instant,
         zone: ZoneId,
         immediate: Boolean = false,
+        pausedAt: Long? = null,
     ): Boolean = settings.enabled &&
         isInSnoozeWindow(settings, now, zone) &&
+        !isPaused(settings, pausedAt, now) &&
         (immediate || isIntervalElapsed(settings, lastShownAt, now))
 
     /**
@@ -75,6 +86,7 @@ object SnoozeLogic {
      * 満たさないときにスヌーズを判定する。監視対象アプリでなければ何も出さない。
      *
      * @param immediate 監視対象アプリへの切り替え時の即時表示（間隔を問わない。SPEC 5 章）
+     * @param pausedAt 「開く」の後の休止の開始時刻（全体の `snoozePausedAt`）
      */
     fun decideGate(
         packageName: String,
@@ -86,18 +98,20 @@ object SnoozeLogic {
         settings: SnoozeSettings,
         lastShownAt: Long?,
         immediate: Boolean = false,
+        pausedAt: Long? = null,
     ): GateDecision {
         if (packageName !in guardedPackages) return GateDecision.None
         val today = now.atZone(zone).toLocalDate()
         if (GateLogic.shouldShowGate(packageName, today, zone, guardedPackages, gatePassedDate, targets)) {
             return GateDecision.Normal
         }
-        if (!isSnoozeReady(settings, lastShownAt, now, zone, immediate)) return GateDecision.None
+        if (!isSnoozeReady(settings, lastShownAt, now, zone, immediate, pausedAt)) return GateDecision.None
         return selectSnoozeTarget(targets)?.let { GateDecision.Snooze(it) } ?: GateDecision.None
     }
 
     /**
-     * 次にスヌーズが可能になる時刻（前回の表示 + 間隔と、時間帯の開始のうち遅いもの）。すでに可能なら `now`。
+     * 次にスヌーズが可能になる時刻（前回の表示 + 間隔・「開く」の後の休止の終了・時間帯の開始のうち最も遅いもの）。
+     * すでに可能なら `now`。
      * スヌーズ OFF、または誘導先が 1 件もなければ null。監視対象アプリが前面にある間のタイマーに使う。
      */
     fun nextSnoozeReadyAt(
@@ -106,11 +120,15 @@ object SnoozeLogic {
         targets: List<Target>,
         now: Instant,
         zone: ZoneId,
+        pausedAt: Long? = null,
     ): Instant? {
         if (!settings.enabled || targets.isEmpty()) return null
+        val interval = settings.intervalMinutes * MILLIS_PER_MINUTE
         var t = now
         // 前回の表示から間隔をあける
-        lastShownAt?.let { last -> t = maxOf(t, Instant.ofEpochMilli(last + settings.intervalMinutes * MILLIS_PER_MINUTE)) }
+        lastShownAt?.let { last -> t = maxOf(t, Instant.ofEpochMilli(last + interval)) }
+        // 「開く」の後の休止が終わるまで待つ
+        pausedAt?.let { paused -> t = maxOf(t, Instant.ofEpochMilli(paused + interval)) }
         // 時間帯の外なら、次に時間帯が始まる時刻まで待つ（間隔は一度経過すれば経過したままなので、後ろにずらしても成り立つ）
         return nextWindowStart(settings, t, zone)
     }

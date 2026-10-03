@@ -26,6 +26,8 @@ data class GateSnapshot(
     val snoozeSettings: SnoozeSettings,
     /** スヌーズ用ゲートを最後に表示した日時（アプリ全体） */
     val lastSnoozeShownAt: Long?,
+    /** ゲートの「開く」で誘導先を開いた日時（スヌーズの休止の開始） */
+    val snoozePausedAt: Long? = null,
 )
 
 /**
@@ -45,9 +47,10 @@ class GateStateCache(
         targetRepository.observeTargets(),
         settingsRepository.gatePassedDate,
         settingsRepository.snoozeSettings,
-        settingsRepository.lastSnoozeShownAt,
-    ) { guarded, targets, passed, snooze, lastShown -> GateSnapshot(guarded, targets, passed, snooze, lastShown) }
-        .stateIn(scope, SharingStarted.Eagerly, null)
+        combine(settingsRepository.lastSnoozeShownAt, settingsRepository.snoozePausedAt) { shown, paused -> shown to paused },
+    ) { guarded, targets, passed, snooze, (lastShown, pausedAt) ->
+        GateSnapshot(guarded, targets, passed, snooze, lastShown, pausedAt)
+    }.stateIn(scope, SharingStarted.Eagerly, null)
 
     /**
      * スヌーズ用ゲートを表示した日時の上書き（epoch millis）。
@@ -55,6 +58,13 @@ class GateStateCache(
      */
     @Volatile
     private var snoozeShownOverride: Long? = null
+
+    /**
+     * スヌーズの休止の開始（「開く」で誘導先を開いた日時）の上書き。
+     * DataStore への保存が Flow に反映されるまでの間も、すぐに休止させる。
+     */
+    @Volatile
+    private var snoozePausedOverride: Long? = null
 
     /** スヌーズ用ゲートの「開く」で開いた先のパッケージ（SPEC 5 章の堂々巡りの防止。メモリ上だけに保持する） */
     @Volatile
@@ -95,13 +105,14 @@ class GateStateCache(
             settings = s.snoozeSettings,
             lastShownAt = lastShown,
             immediate = immediate,
+            pausedAt = pausedAt(s),
         )
     }
 
     /** 次にスヌーズが可能になる時刻（5 章のタイマー用）。スヌーズ OFF・誘導先なしなら null */
     fun nextSnoozeReadyAt(): Instant? {
         val s = snapshot.value ?: return null
-        return SnoozeLogic.nextSnoozeReadyAt(s.snoozeSettings, lastShownAt(s), s.targets, clock.instant(), clock.zone)
+        return SnoozeLogic.nextSnoozeReadyAt(s.snoozeSettings, lastShownAt(s), s.targets, clock.instant(), clock.zone, pausedAt(s))
     }
 
     /** スヌーズ用ゲートを表示した（DataStore への保存とは別に、すぐ判定に反映する） */
@@ -112,6 +123,16 @@ class GateStateCache(
     /** スヌーズ用ゲートの「開く」で開いた先のパッケージを記録する（不明なら null） */
     fun markSnoozeOpened(packageName: String?) {
         snoozeOpenedPackage = packageName
+    }
+
+    /** ゲートの「開く」で誘導先を開いた（スヌーズを休止する。DataStore への保存とは別に、すぐ判定に反映する） */
+    fun markSnoozePaused(at: Long) {
+        snoozePausedOverride = maxOf(at, snoozePausedOverride ?: Long.MIN_VALUE)
+    }
+
+    private fun pausedAt(s: GateSnapshot): Long? {
+        val override = snoozePausedOverride ?: return s.snoozePausedAt
+        return maxOf(override, s.snoozePausedAt ?: Long.MIN_VALUE)
     }
 
     /** 保存された値と、すぐ反映した値のうち新しいほう */

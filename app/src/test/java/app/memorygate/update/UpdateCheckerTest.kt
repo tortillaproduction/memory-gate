@@ -70,19 +70,19 @@ class UpdateCheckerTest {
     }
 
     @Test
-    fun skipsWithin12Hours() = runTest {
+    fun skipsWithin1Hour() = runTest {
         val settings = FakeSettingsRepository()
-        settings.lastChecked.value = now.toEpochMilli() - 11 * hour
+        settings.lastChecked.value = now.toEpochMilli() - hour + 1
         val http = FakeHttpClient { HttpResponse(200, releaseJson) }
         checker(http, settings).checkIfDue()
         assertEquals(0, http.calls)
-        assertEquals(now.toEpochMilli() - 11 * hour, settings.lastChecked.value)
+        assertEquals(now.toEpochMilli() - hour + 1, settings.lastChecked.value)
     }
 
     @Test
-    fun checksAfter12Hours() = runTest {
+    fun checksAfter1Hour() = runTest {
         val settings = FakeSettingsRepository()
-        settings.lastChecked.value = now.toEpochMilli() - 12 * hour
+        settings.lastChecked.value = now.toEpochMilli() - hour
         val http = FakeHttpClient { HttpResponse(200, releaseJson) }
         checker(http, settings).checkIfDue()
         assertEquals(1, http.calls)
@@ -117,12 +117,55 @@ class UpdateCheckerTest {
     }
 
     @Test
+    fun checkNowQueriesEvenWithin1Hour() = runTest {
+        val settings = FakeSettingsRepository()
+        settings.lastChecked.value = now.toEpochMilli() - 1
+        val http = FakeHttpClient { HttpResponse(200, releaseJson) }
+        val result = checker(http, settings).checkNow()
+
+        assertEquals(1, http.calls)
+        assertEquals(
+            ManualCheckResult.UpdateAvailable("0.1.4", "https://github.com/tortillaproduction/memory-gate/releases/tag/v0.1.4"),
+            result,
+        )
+        assertEquals(StoredRelease("0.1.4", "https://github.com/tortillaproduction/memory-gate/releases/tag/v0.1.4"), settings.release.value)
+        assertEquals(now.toEpochMilli(), settings.lastChecked.value)
+    }
+
+    @Test
+    fun checkNowReportsUpToDate() = runTest {
+        for (current in listOf("0.1.4", "0.1.10")) {
+            val settings = FakeSettingsRepository()
+            val result = checker(FakeHttpClient { HttpResponse(200, releaseJson) }, settings, current = current).checkNow()
+            assertEquals(ManualCheckResult.UpToDate, result)
+            assertNull(settings.release.value)
+            assertEquals(now.toEpochMilli(), settings.lastChecked.value)
+        }
+    }
+
+    @Test
+    fun checkNowReportsFailure() = runTest {
+        for (http in listOf(
+            FakeHttpClient { throw IOException("offline") },
+            FakeHttpClient { HttpResponse(403, """{"message":"API rate limit exceeded"}""") },
+            FakeHttpClient { HttpResponse(200, "not json") },
+        )) {
+            val settings = FakeSettingsRepository()
+            val logs = mutableListOf<String>()
+            assertEquals(ManualCheckResult.Failed, checker(http, settings, logs = logs).checkNow())
+            assertNull(settings.release.value)
+            assertEquals(now.toEpochMilli(), settings.lastChecked.value)
+            assertEquals(1, logs.size)
+        }
+    }
+
+    @Test
     fun isDue() {
         val t = now.toEpochMilli()
         assertTrue(UpdateChecker.isDue(null, t))
         assertFalse(UpdateChecker.isDue(t, t))
-        assertFalse(UpdateChecker.isDue(t - 12 * hour + 1, t))
-        assertTrue(UpdateChecker.isDue(t - 12 * hour, t))
+        assertFalse(UpdateChecker.isDue(t - hour + 1, t))
+        assertTrue(UpdateChecker.isDue(t - hour, t))
         // 時計の巻き戻りで前回の確認日時が未来になっている場合も確認する
         assertTrue(UpdateChecker.isDue(t + hour, t))
     }

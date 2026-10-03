@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,6 +52,7 @@ import app.memorygate.BuildConfig
 import app.memorygate.appContainer
 import app.memorygate.ui.common.DISCLAIMER_TEXT
 import app.memorygate.ui.common.TargetTypeIcon
+import app.memorygate.update.ManualCheckResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,9 +157,14 @@ fun HomeScreen(
     }
 
     if (showAbout) {
+        val manualCheck by viewModel.manualCheck.collectAsStateWithLifecycle()
+        val closeAbout = {
+            showAbout = false
+            viewModel.resetManualCheck()
+        }
         AlertDialog(
-            onDismissRequest = { showAbout = false },
-            confirmButton = { TextButton(onClick = { showAbout = false }) { Text("閉じる") } },
+            onDismissRequest = closeAbout,
+            confirmButton = { TextButton(onClick = closeAbout) { Text("閉じる") } },
             title = { Text("Memory Gate") },
             text = {
                 Column(
@@ -165,11 +172,40 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("バージョン ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）")
+                    ManualUpdateCheck(
+                        state = manualCheck,
+                        onCheck = viewModel::checkForUpdateNow,
+                        onOpen = { url -> context.appContainer.targetLauncher.openUrl(context, url) },
+                    )
                     Text("免責事項", style = MaterialTheme.typography.titleSmall)
                     Text(DISCLAIMER_TEXT, style = MaterialTheme.typography.bodySmall)
                 }
             },
         )
+    }
+}
+
+/** アプリ情報の「アップデートを確認」ボタンと、その結果 */
+@Composable
+private fun ManualUpdateCheck(state: ManualUpdateCheckState, onCheck: () -> Unit, onOpen: (url: String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val checking = state == ManualUpdateCheckState.Checking
+        OutlinedButton(onClick = onCheck, enabled = !checking) {
+            Text(if (checking) "確認中…" else "アップデートを確認")
+        }
+        when (val result = (state as? ManualUpdateCheckState.Done)?.result) {
+            null -> Unit
+            ManualCheckResult.UpToDate -> Text("最新のバージョンです", style = MaterialTheme.typography.bodyMedium)
+            is ManualCheckResult.UpdateAvailable -> {
+                Text("新しいバージョン v${result.version} が公開されています", style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { onOpen(result.htmlUrl) }) { Text("ダウンロードページを開く") }
+            }
+            ManualCheckResult.Failed -> Text(
+                "確認できませんでした。通信状態を確認して、しばらくしてからもう一度お試しください",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 

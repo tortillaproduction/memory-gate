@@ -1,7 +1,5 @@
 package app.memorygate.service
 
-import app.memorygate.domain.SnoozeLogic
-import app.memorygate.domain.SnoozeSettings
 import java.time.Instant
 
 /** 前面に来たアプリの分類（SPEC 5 章のスヌーズの割り込み） */
@@ -41,18 +39,6 @@ object SnoozeInterruptPolicy {
         nextReadyAt ?: return null
         return maxOf(MIN_DELAY_MILLIS, nextReadyAt.toEpochMilli() - now.toEpochMilli())
     }
-
-    /**
-     * 切り替え時の即時表示をしてよいか（SPEC 5 章の堂々巡りの防止）。
-     * スヌーズ用ゲートの「開く」で開いた先のパッケージ（[openedPackage]）では、前回の表示から間隔が経過するまで即時表示しない
-     */
-    fun allowImmediate(
-        packageName: String,
-        openedPackage: String?,
-        settings: SnoozeSettings,
-        lastShownAt: Long?,
-        now: Instant,
-    ): Boolean = packageName != openedPackage || SnoozeLogic.isIntervalElapsed(settings, lastShownAt, now)
 }
 
 /** 前面に来たアプリの判定結果 */

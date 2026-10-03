@@ -37,6 +37,9 @@ interface SettingsRepository {
     /** スヌーズ用ゲートを最後に表示した日時 (epoch millis)。未表示なら null */
     val lastSnoozeShownAt: Flow<Long?>
 
+    /** ゲートの「開く」で誘導先を開いた日時（スヌーズの休止の開始。v0.1.8）。なければ null */
+    val snoozePausedAt: Flow<Long?>
+
     /** v0.1.6 までの誘導先ごとのスヌーズ設定の引き継ぎが完了したか */
     val snoozeSettingsMigrated: Flow<Boolean>
 
@@ -51,6 +54,7 @@ interface SettingsRepository {
     suspend fun setSnoozeStartMinutes(minutes: Int)
     suspend fun setSnoozeEndMinutes(minutes: Int)
     suspend fun setLastSnoozeShownAt(epochMillis: Long)
+    suspend fun setSnoozePausedAt(epochMillis: Long)
 
     /**
      * 引き継ぎ: まだ完了していなければ [settings] を保存し、完了フラグを立てる（1 回の書き込みで行う）。
@@ -101,6 +105,8 @@ class DataStoreSettingsRepository(
     }.distinctUntilChanged()
 
     override val lastSnoozeShownAt: Flow<Long?> = dataStore.data.map { it[KEY_LAST_SNOOZE_SHOWN_AT] }.distinctUntilChanged()
+
+    override val snoozePausedAt: Flow<Long?> = dataStore.data.map { it[KEY_SNOOZE_PAUSED_AT] }.distinctUntilChanged()
 
     override val snoozeSettingsMigrated: Flow<Boolean> = dataStore.data.map { it[KEY_SNOOZE_SETTINGS_MIGRATED] ?: false }
 
@@ -153,6 +159,10 @@ class DataStoreSettingsRepository(
         dataStore.edit { it[KEY_LAST_SNOOZE_SHOWN_AT] = epochMillis }
     }
 
+    override suspend fun setSnoozePausedAt(epochMillis: Long) {
+        dataStore.edit { it[KEY_SNOOZE_PAUSED_AT] = epochMillis }
+    }
+
     override suspend fun migrateSnoozeSettings(settings: SnoozeSettings): Boolean {
         var applied = false
         dataStore.edit { prefs ->
@@ -180,6 +190,7 @@ class DataStoreSettingsRepository(
         val KEY_SNOOZE_START_MINUTES = intPreferencesKey("snoozeStartMinutes")
         val KEY_SNOOZE_END_MINUTES = intPreferencesKey("snoozeEndMinutes")
         val KEY_LAST_SNOOZE_SHOWN_AT = longPreferencesKey("lastSnoozeShownAt")
+        val KEY_SNOOZE_PAUSED_AT = longPreferencesKey("snoozePausedAt")
         val KEY_SNOOZE_SETTINGS_MIGRATED = booleanPreferencesKey("snoozeSettingsMigrated")
     }
 }

@@ -47,7 +47,8 @@ class SnoozeLogicTest {
         passed: LocalDate? = today,
         pkg: String = "com.sns",
         immediate: Boolean = false,
-    ) = SnoozeLogic.decideGate(pkg, now, zone, guarded, passed, targets, snooze, lastShown, immediate)
+        pausedAt: Long? = null,
+    ) = SnoozeLogic.decideGate(pkg, now, zone, guarded, passed, targets, snooze, lastShown, immediate, pausedAt)
 
     // ---- isInSnoozeWindow ----
 
@@ -178,6 +179,44 @@ class SnoozeLogicTest {
         assertEquals(GateDecision.None, decide(at(12), targets = emptyList(), immediate = true))
         assertEquals(GateDecision.None, decide(at(12), pkg = "com.other", immediate = true))
         assertEquals(GateDecision.Normal, decide(at(12), passed = null, immediate = true))
+    }
+
+    // ---- 「開く」の後の休止（v0.1.8） ----
+
+    @Test
+    fun pausedWithinIntervalAfterOpen() {
+        val opened = at(12).toEpochMilli()
+        val s = settings(interval = 30)
+        assertFalse(SnoozeLogic.isPaused(s, null, at(12)))
+        assertTrue(SnoozeLogic.isPaused(s, opened, at(12)))
+        assertTrue(SnoozeLogic.isPaused(s, opened, at(12, 29)))
+        assertFalse(SnoozeLogic.isPaused(s, opened, at(12, 30)))
+    }
+
+    @Test
+    fun pauseBlocksEvenImmediateDisplay() {
+        // 「開く」の後、間隔の間は、切り替え時（immediate）でも定期表示でも出さない
+        val t = target()
+        val opened = at(12).toEpochMilli()
+        assertEquals(GateDecision.None, decide(at(12, 10), listOf(t), pausedAt = opened, immediate = true))
+        assertEquals(GateDecision.None, decide(at(12, 10), listOf(t), pausedAt = opened))
+        // 間隔が経過したら出す
+        assertEquals(GateDecision.Snooze(t), decide(at(12, 30), listOf(t), pausedAt = opened, immediate = true))
+        assertEquals(GateDecision.Snooze(t), decide(at(12, 30), listOf(t), pausedAt = opened))
+        // 通常のゲートの優先は変わらない
+        assertEquals(GateDecision.Normal, decide(at(12, 10), listOf(t), pausedAt = opened, passed = null))
+    }
+
+    @Test
+    fun nextReadyWaitsForPauseEnd() {
+        val opened = at(12).toEpochMilli()
+        assertEquals(at(12, 30), SnoozeLogic.nextSnoozeReadyAt(settings(interval = 30), null, listOf(target()), at(12, 5), zone, opened))
+        // 前回の表示 + 間隔のほうが遅ければ、そちら
+        val shown = at(12, 10).toEpochMilli()
+        assertEquals(at(12, 40), SnoozeLogic.nextSnoozeReadyAt(settings(interval = 30), shown, listOf(target()), at(12, 15), zone, opened))
+        // 休止の終わりが時間帯の外なら、翌日の時間帯の開始
+        val openedLate = at(21, 50).toEpochMilli()
+        assertEquals(at(9, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(settings(interval = 30), null, listOf(target()), at(21, 55), zone, openedLate))
     }
 
     // ---- nextSnoozeReadyAt ----

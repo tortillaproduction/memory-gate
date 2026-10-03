@@ -8,7 +8,6 @@ import app.memorygate.domain.GateLogic
 import app.memorygate.domain.SnoozeLogic
 import app.memorygate.domain.SnoozeSettings
 import app.memorygate.domain.Target
-import app.memorygate.service.SnoozeInterruptPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +25,8 @@ data class GateSnapshot(
     val snoozeSettings: SnoozeSettings,
     /** スヌーズ用ゲートを最後に表示した日時（アプリ全体） */
     val lastSnoozeShownAt: Long?,
+    /** ゲートの「開く」で誘導先を開いた日時（スヌーズの休止の開始） */
+    val snoozePausedAt: Long? = null,
 )
 
 /**
@@ -45,9 +46,10 @@ class GateStateCache(
         targetRepository.observeTargets(),
         settingsRepository.gatePassedDate,
         settingsRepository.snoozeSettings,
-        settingsRepository.lastSnoozeShownAt,
-    ) { guarded, targets, passed, snooze, lastShown -> GateSnapshot(guarded, targets, passed, snooze, lastShown) }
-        .stateIn(scope, SharingStarted.Eagerly, null)
+        combine(settingsRepository.lastSnoozeShownAt, settingsRepository.snoozePausedAt) { shown, paused -> shown to paused },
+    ) { guarded, targets, passed, snooze, (lastShown, pausedAt) ->
+        GateSnapshot(guarded, targets, passed, snooze, lastShown, pausedAt)
+    }.stateIn(scope, SharingStarted.Eagerly, null)
 
     /**
      * スヌーズ用ゲートを表示した日時の上書き（epoch millis）。
@@ -56,9 +58,12 @@ class GateStateCache(
     @Volatile
     private var snoozeShownOverride: Long? = null
 
-    /** スヌーズ用ゲートの「開く」で開いた先のパッケージ（SPEC 5 章の堂々巡りの防止。メモリ上だけに保持する） */
+    /**
+     * スヌーズの休止の開始（「開く」で誘導先を開いた日時）の上書き。
+     * DataStore への保存が Flow に反映されるまでの間も、すぐに休止させる。
+     */
     @Volatile
-    private var snoozeOpenedPackage: String? = null
+    private var snoozePausedOverride: Long? = null
 
     /** 4.3 ゲートを表示するか。読み込み完了前は表示しない */
     fun shouldShowGate(packageName: String): Boolean {
@@ -77,14 +82,12 @@ class GateStateCache(
      * 通常のゲート・スヌーズ用ゲートのどちらを表示するか（4.3・4.7）。読み込み完了前は表示しない。
      *
      * @param switched 監視対象アプリへの切り替えか。切り替え時は間隔に関係なくスヌーズ用ゲートを出す
-     *   （ただし「開く」で開いた先のパッケージでは、前回の表示から間隔が経過するまで出さない）
+     *   （ただし「開く」の後の休止中は出さない）
      */
     fun decide(packageName: String, switched: Boolean = false): GateDecision {
         val s = snapshot.value ?: return GateDecision.None
         val now = clock.instant()
         val lastShown = lastShownAt(s)
-        val immediate = switched &&
-            SnoozeInterruptPolicy.allowImmediate(packageName, snoozeOpenedPackage, s.snoozeSettings, lastShown, now)
         return SnoozeLogic.decideGate(
             packageName = packageName,
             now = now,
@@ -94,14 +97,15 @@ class GateStateCache(
             targets = s.targets,
             settings = s.snoozeSettings,
             lastShownAt = lastShown,
-            immediate = immediate,
+            immediate = switched,
+            pausedAt = pausedAt(s),
         )
     }
 
     /** 次にスヌーズが可能になる時刻（5 章のタイマー用）。スヌーズ OFF・誘導先なしなら null */
     fun nextSnoozeReadyAt(): Instant? {
         val s = snapshot.value ?: return null
-        return SnoozeLogic.nextSnoozeReadyAt(s.snoozeSettings, lastShownAt(s), s.targets, clock.instant(), clock.zone)
+        return SnoozeLogic.nextSnoozeReadyAt(s.snoozeSettings, lastShownAt(s), s.targets, clock.instant(), clock.zone, pausedAt(s))
     }
 
     /** スヌーズ用ゲートを表示した（DataStore への保存とは別に、すぐ判定に反映する） */
@@ -109,9 +113,14 @@ class GateStateCache(
         snoozeShownOverride = maxOf(at, snoozeShownOverride ?: Long.MIN_VALUE)
     }
 
-    /** スヌーズ用ゲートの「開く」で開いた先のパッケージを記録する（不明なら null） */
-    fun markSnoozeOpened(packageName: String?) {
-        snoozeOpenedPackage = packageName
+    /** ゲートの「開く」で誘導先を開いた（スヌーズを休止する。DataStore への保存とは別に、すぐ判定に反映する） */
+    fun markSnoozePaused(at: Long) {
+        snoozePausedOverride = maxOf(at, snoozePausedOverride ?: Long.MIN_VALUE)
+    }
+
+    private fun pausedAt(s: GateSnapshot): Long? {
+        val override = snoozePausedOverride ?: return s.snoozePausedAt
+        return maxOf(override, s.snoozePausedAt ?: Long.MIN_VALUE)
     }
 
     /** 保存された値と、すぐ反映した値のうち新しいほう */

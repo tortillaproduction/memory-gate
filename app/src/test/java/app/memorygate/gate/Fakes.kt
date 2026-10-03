@@ -76,6 +76,11 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setLastSnoozeShownAt(epochMillis: Long) {
         lastSnoozeShown.value = epochMillis
     }
+    val snoozePaused = MutableStateFlow<Long?>(null)
+    override val snoozePausedAt: Flow<Long?> = snoozePaused
+    override suspend fun setSnoozePausedAt(epochMillis: Long) {
+        snoozePaused.value = epochMillis
+    }
     override suspend fun migrateSnoozeSettings(settings: SnoozeSettings): Boolean {
         if (snoozeMigrated.value) return false
         snooze.value = settings

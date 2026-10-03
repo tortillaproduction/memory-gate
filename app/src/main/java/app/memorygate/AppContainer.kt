@@ -47,7 +47,7 @@ class AppContainer(context: Context) {
     val gateStateCache: GateStateCache by lazy {
         GateStateCache(applicationScope, targetRepository, guardedAppRepository, settingsRepository, clock)
     }
-    val gateInteractor: GateInteractor by lazy { GateInteractor(targetRepository, settingsRepository, clock) }
+    val gateInteractor: GateInteractor by lazy { GateInteractor(targetRepository, settingsRepository, clock, gateStateCache) }
     val targetLauncher: TargetLauncher by lazy { TargetLauncher(appContext) }
     val snoozeImageStore: SnoozeImageStore by lazy { SnoozeImageStore(appContext) }
 

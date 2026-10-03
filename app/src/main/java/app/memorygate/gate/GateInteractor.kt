@@ -10,6 +10,8 @@ class GateInteractor(
     private val targetRepository: TargetRepository,
     private val settingsRepository: SettingsRepository,
     private val clock: Clock,
+    /** 休止をすぐ判定に反映するためのキャッシュ（ユニットテストでは省略できる） */
+    private val gateStateCache: GateStateCache? = null,
 ) {
     /**
      * 4.4 ゲートのボタンを押したとき: 誘導先の lastVisitedAt = now、gatePassedDate = today。
@@ -18,6 +20,18 @@ class GateInteractor(
     suspend fun onTargetOpened(targetId: Long) {
         targetRepository.setLastVisitedAt(targetId, clock.millis())
         settingsRepository.setGatePassedDate(GateLogic.today(clock))
+    }
+
+    /**
+     * 通常のゲート・スヌーズ用ゲートの「開く」で誘導先を開けたとき（v0.1.8）: スヌーズを休止する（`snoozePausedAt = now`）。
+     * 休止中（`now < snoozePausedAt + 間隔`）はスヌーズ用ゲートを一切出さない。
+     * キャッシュには最初の中断より前に反映するので、`CoroutineStart.UNDISPATCHED` で呼べば同期的に反映される。
+     * 開けなかった場合や、緊急退避・戻る操作では呼ばないこと（休止しない）。
+     */
+    suspend fun onTargetLaunched() {
+        val now = clock.millis()
+        gateStateCache?.markSnoozePaused(now)
+        settingsRepository.setSnoozePausedAt(now)
     }
 
     /**

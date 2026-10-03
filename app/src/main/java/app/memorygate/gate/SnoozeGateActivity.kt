@@ -86,7 +86,7 @@ class SnoozeGateActivity : ComponentActivity() {
     private fun openTarget() {
         if (closing) return
         val target = viewModel.uiState.value.target ?: return
-        if (GateActions.openTarget(this, target, fromSnooze = true)) {
+        if (GateActions.openTarget(this, target)) {
             closing = true
         } else {
             viewModel.show(target.id)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.memorygate.domain.SnoozeFormat
@@ -113,7 +115,13 @@ fun SnoozeSection(
             val path = state.snoozeImagePath
             when {
                 state.importingImage -> CircularProgressIndicator(Modifier.size(32.dp))
-                path != null -> FileImage(path, Modifier.size(96.dp)) { ImagePlaceholder() }
+                // スヌーズ用ゲートの丸い画像と同じ表示方法（縦横比を保って円いっぱい、中央合わせ）
+                path != null -> FileImage(
+                    path,
+                    Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
+                ) { ImagePlaceholder() }
                 else -> ImagePlaceholder()
             }
         }

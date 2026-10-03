@@ -29,6 +29,9 @@ interface TargetDao {
 
     @Query("UPDATE targets SET lastSnoozeShownAt = :lastSnoozeShownAt WHERE id = :id")
     suspend fun updateLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?)
+
+    @Query("UPDATE targets SET snoozeEnabled = :snoozeEnabled WHERE id = :id")
+    suspend fun updateSnoozeEnabled(id: Long, snoozeEnabled: Boolean)
 }
 
 @Dao

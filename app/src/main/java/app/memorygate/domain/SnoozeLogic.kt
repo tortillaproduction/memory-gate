@@ -44,10 +44,12 @@ object SnoozeLogic {
         else -> minute >= start || minute < end
     }
 
-    /** スヌーズ用ゲートを出せる状態か */
+    /**
+     * スヌーズ用ゲートを出せる状態か。期限切れかどうかには関係なく、スヌーズ ON・時間帯の中・前回の表示から間隔が経過、
+     * のすべてを満たすとき（v0.1.6 から。訪問済みにしてもスヌーズは止まらない）
+     */
     fun isSnoozeReady(target: Target, now: Instant, zone: ZoneId): Boolean {
         if (!target.snoozeEnabled) return false
-        if (!GateLogic.isDue(target, now.atZone(zone).toLocalDate(), zone)) return false
         if (!isInSnoozeWindow(target, now, zone)) return false
         val last = target.lastSnoozeShownAt ?: return true
         return now.toEpochMilli() - last >= target.effectiveSnoozeIntervalMinutes * MILLIS_PER_MINUTE
@@ -83,21 +85,15 @@ object SnoozeLogic {
      * 監視対象アプリが前面にある間のタイマーに使う。
      */
     fun nextSnoozeReadyAt(targets: List<Target>, now: Instant, zone: ZoneId): Instant? =
-        targets.filter { it.snoozeEnabled }.mapNotNull { readyAt(it, now, zone) }.minOrNull()
+        targets.filter { it.snoozeEnabled }.minOfOrNull { readyAt(it, now, zone) }
 
-    private fun readyAt(target: Target, now: Instant, zone: ZoneId): Instant? {
+    private fun readyAt(target: Target, now: Instant, zone: ZoneId): Instant {
         var t = now
-        // 期限切れになる時刻（翌日以降の 0:00）
-        val today = now.atZone(zone).toLocalDate()
-        if (!GateLogic.isDue(target, today, zone)) {
-            val dueDate = GateLogic.nextDueDate(target, today, zone) ?: return null
-            t = maxOf(t, dueDate.atStartOfDay(zone).toInstant())
-        }
         // 前回の表示から間隔をあける
         target.lastSnoozeShownAt?.let { last ->
             t = maxOf(t, Instant.ofEpochMilli(last + target.effectiveSnoozeIntervalMinutes * MILLIS_PER_MINUTE))
         }
-        // 時間帯の外なら、次に時間帯が始まる時刻まで待つ（期限切れは訪問するまで続くので、後ろにずらしても成り立つ）
+        // 時間帯の外なら、次に時間帯が始まる時刻まで待つ（間隔は一度経過すれば経過したままなので、後ろにずらしても成り立つ）
         return nextWindowStart(target, t, zone)
     }
 

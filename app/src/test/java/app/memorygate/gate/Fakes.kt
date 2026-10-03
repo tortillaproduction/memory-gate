@@ -24,6 +24,8 @@ class FakeTargetRepository(initial: List<Target> = emptyList()) : TargetReposito
         targets.update { list -> list.map { if (it.id == id) it.copy(lastVisitedAt = lastVisitedAt) else it } }
     override suspend fun setLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?) =
         targets.update { list -> list.map { if (it.id == id) it.copy(lastSnoozeShownAt = lastSnoozeShownAt) else it } }
+    override suspend fun setSnoozeEnabled(id: Long, snoozeEnabled: Boolean) =
+        targets.update { list -> list.map { if (it.id == id) it.copy(snoozeEnabled = snoozeEnabled) else it } }
 }
 
 class FakeGuardedAppRepository(initial: Set<String> = emptySet()) : GuardedAppRepository {

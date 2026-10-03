@@ -10,16 +10,18 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.memorygate.appContainer
 import app.memorygate.ui.common.NavigationBarTapToggle
 import app.memorygate.ui.common.NavigationBars
 import app.memorygate.ui.theme.MemoryGateTheme
+import kotlinx.coroutines.launch
 
 /**
  * スヌーズ用ゲート（SPEC 7.5）。通常のゲートとは別の Activity・別のタスクにする。
- * 「開く」・緊急退避・戻る操作は通常のゲートと同じ（[GateActions]）。
+ * 「開く」・緊急退避・戻る操作は通常のゲートと同じ（[GateActions]）。「スヌーズを止める」はスヌーズ用ゲートだけ。
  */
 class SnoozeGateActivity : ComponentActivity() {
 
@@ -27,8 +29,8 @@ class SnoozeGateActivity : ComponentActivity() {
         viewModelFactory { initializer { SnoozeGateViewModel(appContainer) } }
     }
 
-    /** 二重タップで開かないようにする */
-    private var opening = false
+    /** 閉じる処理の途中か。二重タップを防ぎ、「開く」と「スヌーズを止める」のどちらかを押したらもう一方は受け付けない */
+    private var closing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,12 +51,13 @@ class SnoozeGateActivity : ComponentActivity() {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 // 誘導先が削除された場合は閉じる
                 LaunchedEffect(state) {
-                    if (!state.loading && state.target == null && !opening) finish()
+                    if (!state.loading && state.target == null && !closing) finish()
                 }
                 NavigationBarTapToggle {
                     SnoozeGateScreen(
                         state = state,
                         onOpen = ::openTarget,
+                        onStopSnooze = ::stopSnooze,
                         onEscape = { GateActions.goHome(this) },
                     )
                 }
@@ -81,12 +84,26 @@ class SnoozeGateActivity : ComponentActivity() {
 
     /** 4.4 と同じ: lastVisitedAt と gatePassedDate を更新して誘導先を開く */
     private fun openTarget() {
-        if (opening) return
+        if (closing) return
         val target = viewModel.uiState.value.target ?: return
         if (GateActions.openTarget(this, target)) {
-            opening = true
+            closing = true
         } else {
             viewModel.show(target.id)
+        }
+    }
+
+    /**
+     * 「スヌーズを止める」→ 確認ダイアログで「OFF にする」: その誘導先のスヌーズを OFF にし、
+     * スヌーズ用ゲートを閉じて元のアプリに戻る（ホームへは移動しない。lastVisitedAt と gatePassedDate は更新しない）
+     */
+    private fun stopSnooze() {
+        if (closing) return
+        val target = viewModel.uiState.value.target ?: return
+        closing = true
+        lifecycleScope.launch {
+            appContainer.gateInteractor.onSnoozeStopped(target.id)
+            finish()
         }
     }
 

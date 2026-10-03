@@ -16,11 +16,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,15 +63,17 @@ private fun TextStyle.withShadow() = copy(color = Color.White, shadow = Shadow(C
 
 /**
  * スヌーズ用ゲート（SPEC 7.5）。
- * 背景（昼の空・夜の星空）を画面全体に敷き、画面の高さの約 35% の位置に丸い画像、その下にタイトルと「開く」ボタン、
- * 最下部に緊急退避ボタンを置く。
+ * 背景（昼の空・夜の星空）を画面全体に敷き、画面の高さの約 35% の位置に丸い画像、その下にタイトル・「開く」ボタン・
+ * 「スヌーズを止める」ボタン、最下部に緊急退避ボタンを置く。
  */
 @Composable
 fun SnoozeGateScreen(
     state: SnoozeGateUiState,
     onOpen: () -> Unit,
+    onStopSnooze: () -> Unit,
     onEscape: () -> Unit,
 ) {
+    var confirmingStop by rememberSaveable { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // 背景はステータスバー・ナビゲーションバーの裏まで隙間なく覆う
         Image(
@@ -77,7 +86,7 @@ fun SnoozeGateScreen(
         Layout(
             contents = listOf(
                 { SnoozeCircle(target) },
-                { SnoozeContent(target, state.launchable, onOpen) },
+                { SnoozeContent(target, state.launchable, onOpen, onStop = { confirmingStop = true }) },
                 {
                     EmergencyEscapeButton(
                         onTrigger = onEscape,
@@ -116,12 +125,25 @@ fun SnoozeGateScreen(
                 escapePlaceable.place((width - escapePlaceable.width) / 2, height - escapePlaceable.height)
             }
         }
+        if (confirmingStop) {
+            AlertDialog(
+                onDismissRequest = { confirmingStop = false },
+                text = { Text("${target.title}のスヌーズを OFF にしますか？編集画面からいつでも ON に戻せます。") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmingStop = false
+                        onStopSnooze()
+                    }) { Text("OFF にする") }
+                },
+                dismissButton = { TextButton(onClick = { confirmingStop = false }) { Text("キャンセル") } },
+            )
+        }
     }
 }
 
-/** 円の下に置くタイトルと「開く」ボタン */
+/** 円の下に置くタイトル・「開く」ボタン・「スヌーズを止める」ボタン */
 @Composable
-private fun SnoozeContent(target: Target, launchable: Boolean, onOpen: () -> Unit) {
+private fun SnoozeContent(target: Target, launchable: Boolean, onOpen: () -> Unit, onStop: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             target.title,
@@ -142,6 +164,15 @@ private fun SnoozeContent(target: Target, launchable: Boolean, onOpen: () -> Uni
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
+        Spacer(Modifier.height(12.dp))
+        // 控えめなテキストボタン（白文字・半透明の下地）
+        TextButton(
+            onClick = onStop,
+            colors = ButtonDefaults.textButtonColors(
+                containerColor = Color.Black.copy(alpha = 0.35f),
+                contentColor = Color.White,
+            ),
+        ) { Text("スヌーズを止める", style = MaterialTheme.typography.labelLarge) }
     }
 }
 

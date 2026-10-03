@@ -18,6 +18,8 @@ import app.memorygate.ui.home.HomeViewModel
 import app.memorygate.ui.onboarding.OnboardingScreen
 import app.memorygate.ui.onboarding.OnboardingStep
 import app.memorygate.ui.onboarding.OnboardingViewModel
+import app.memorygate.ui.snooze.SnoozeSettingsScreen
+import app.memorygate.ui.snooze.SnoozeSettingsViewModel
 
 @Composable
 fun AppNavHost(startWithOnboarding: Boolean) {
@@ -34,6 +36,7 @@ fun AppNavHost(startWithOnboarding: Boolean) {
                 onEditTarget = { navController.navigate(Routes.targetEdit(it)) },
                 onOpenGuardedApps = { navController.navigate(Routes.GUARDED_APPS) },
                 onOpenOnboarding = { navController.navigate(Routes.onboarding()) },
+                onOpenSnoozeSettings = { navController.navigate(Routes.SNOOZE_SETTINGS) },
                 banner = {
                     AccessibilityBanner(
                         onClick = { navController.navigate(Routes.onboarding(OnboardingStep.ACCESSIBILITY)) },
@@ -77,6 +80,12 @@ fun AppNavHost(startWithOnboarding: Boolean) {
             TargetEditScreen(
                 viewModel = appViewModel { container, handle -> TargetEditViewModel(container, handle) },
                 onClose = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.SNOOZE_SETTINGS) {
+            SnoozeSettingsScreen(
+                viewModel = appViewModel { container, _ -> SnoozeSettingsViewModel(container) },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.GUARDED_APPS) {

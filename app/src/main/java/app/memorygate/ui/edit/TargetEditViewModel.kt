@@ -48,11 +48,7 @@ data class TargetEditUiState(
     val titleError: String? = null,
     val urlError: String? = null,
     val appError: String? = null,
-    /** スヌーズ（OFF にしても設定値は保持する） */
-    val snoozeEnabled: Boolean = false,
-    val snoozeIntervalMinutes: Int = Target.DEFAULT_SNOOZE_INTERVAL_MINUTES,
-    val snoozeStartMinutes: Int = Target.DEFAULT_SNOOZE_START_MINUTES,
-    val snoozeEndMinutes: Int = Target.DEFAULT_SNOOZE_END_MINUTES,
+    /** スヌーズ用ゲートの画像（スヌーズの ON/OFF・間隔・時間帯はアプリ全体の設定） */
     val snoozeImagePath: String? = null,
     val importingImage: Boolean = false,
     val imageError: String? = null,
@@ -137,10 +133,6 @@ class TargetEditViewModel(
             dayOfWeek = target.dayOfWeek ?: today.dayOfWeek.value,
             lastVisitedLabel = lastVisitedLabel(target.lastVisitedAt),
             hasVisited = target.lastVisitedAt != null,
-            snoozeEnabled = target.snoozeEnabled,
-            snoozeIntervalMinutes = target.effectiveSnoozeIntervalMinutes,
-            snoozeStartMinutes = target.effectiveSnoozeStartMinutes,
-            snoozeEndMinutes = target.effectiveSnoozeEndMinutes,
             snoozeImagePath = target.snoozeImagePath,
         )
     }
@@ -157,11 +149,6 @@ class TargetEditViewModel(
     fun setUrl(value: String) = _uiState.update { it.copy(url = value, urlError = null) }
     fun setSchedule(value: ScheduleOption) = _uiState.update { it.copy(schedule = value) }
     fun setDayOfWeek(value: Int) = _uiState.update { it.copy(dayOfWeek = value) }
-
-    fun setSnoozeEnabled(value: Boolean) = _uiState.update { it.copy(snoozeEnabled = value) }
-    fun setSnoozeInterval(minutes: Int) = _uiState.update { it.copy(snoozeIntervalMinutes = minutes) }
-    fun setSnoozeStart(minutes: Int) = _uiState.update { it.copy(snoozeStartMinutes = minutes) }
-    fun setSnoozeEnd(minutes: Int) = _uiState.update { it.copy(snoozeEndMinutes = minutes) }
 
     /** Photo Picker で選んだ画像を縮小してアプリ内部にコピーする（保存するまで元の画像は残す） */
     fun importSnoozeImage(uri: Uri) {
@@ -248,10 +235,11 @@ class TargetEditViewModel(
                 dayOfWeek = if (state.schedule == ScheduleOption.WEEKLY) state.dayOfWeek else null,
                 lastVisitedAt = base?.lastVisitedAt,
                 createdAt = base?.createdAt ?: container.clock.millis(),
-                snoozeEnabled = state.snoozeEnabled,
-                snoozeIntervalMinutes = state.snoozeIntervalMinutes,
-                snoozeStartMinutes = state.snoozeStartMinutes,
-                snoozeEndMinutes = state.snoozeEndMinutes,
+                // v0.1.6 までの誘導先ごとのスヌーズ設定（引き継ぎ専用。v0.1.7 からは使わない）は、読み込んだ値をそのまま残す
+                snoozeEnabled = base?.snoozeEnabled ?: false,
+                snoozeIntervalMinutes = base?.snoozeIntervalMinutes,
+                snoozeStartMinutes = base?.snoozeStartMinutes,
+                snoozeEndMinutes = base?.snoozeEndMinutes,
                 snoozeImagePath = state.snoozeImagePath,
                 lastSnoozeShownAt = base?.lastSnoozeShownAt,
             )

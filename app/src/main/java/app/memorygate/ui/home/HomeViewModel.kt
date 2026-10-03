@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import app.memorygate.AppContainer
 import app.memorygate.BuildConfig
 import app.memorygate.domain.GateLogic
+import app.memorygate.domain.SnoozeFormat
+import app.memorygate.domain.SnoozeSettings
 import app.memorygate.domain.Target
 import app.memorygate.domain.TargetFormat
 import app.memorygate.update.ManualCheckResult
@@ -49,6 +51,8 @@ data class HomeUiState(
     val guardedCount: Int = 0,
     /** 表示する新しいバージョンのお知らせ。なければ null */
     val update: UpdateBannerState? = null,
+    /** スヌーズの状態（例:「スヌーズ：ON（30分おき 9:00〜22:00）」） */
+    val snoozeStatus: String = SnoozeFormat.status(SnoozeSettings()),
 )
 
 class HomeViewModel(
@@ -65,19 +69,27 @@ class HomeViewModel(
             ?.let { UpdateBannerState(it.version, it.htmlUrl) }
     }
 
+    /** ホーム上部の表示（新しいバージョンのお知らせ・スヌーズの状態） */
+    private data class Banners(val update: UpdateBannerState?, val snoozeStatus: String)
+
+    private val banners = combine(update, settings.snoozeSettings) { update, snooze ->
+        Banners(update, SnoozeFormat.status(snooze))
+    }
+
     val uiState: StateFlow<HomeUiState> = combine(
         container.targetRepository.observeTargets(),
         settings.gatePassedDate,
         container.guardedAppRepository.observeGuardedPackages(),
         today,
-        update,
-    ) { targets, gatePassedDate, guarded, today, update ->
+        banners,
+    ) { targets, gatePassedDate, guarded, today, banners ->
         HomeUiState(
             loading = false,
             targets = targets.map { it.toItem(today) },
             gatePassedToday = gatePassedDate == today,
             guardedCount = guarded.size,
-            update = update,
+            update = banners.update,
+            snoozeStatus = banners.snoozeStatus,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

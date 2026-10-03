@@ -128,7 +128,7 @@ fun SnoozeGateScreen(
         if (confirmingStop) {
             AlertDialog(
                 onDismissRequest = { confirmingStop = false },
-                text = { Text("${target.title}のスヌーズを OFF にしますか？編集画面からいつでも ON に戻せます。") },
+                text = { Text("スヌーズを OFF にしますか？スヌーズ設定からいつでも ON に戻せます。") },
                 confirmButton = {
                     TextButton(onClick = {
                         confirmingStop = false

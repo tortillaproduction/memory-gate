@@ -21,11 +21,11 @@ class GateInteractor(
     }
 
     /**
-     * スヌーズ用ゲートの「スヌーズを止める」: その誘導先のスヌーズを OFF にする（編集画面でスイッチを OFF にしたのと同じ。
-     * 間隔・時間帯・画像の設定は残す）。lastVisitedAt と gatePassedDate は更新しない。
+     * スヌーズ用ゲートの「スヌーズを止める」: アプリ全体のスヌーズを OFF にする（スヌーズ設定画面でスイッチを OFF にしたのと同じ。
+     * 間隔・時間帯の設定は残す）。lastVisitedAt と gatePassedDate は更新しない。
      */
-    suspend fun onSnoozeStopped(targetId: Long) {
-        targetRepository.setSnoozeEnabled(targetId, false)
+    suspend fun onSnoozeStopped() {
+        settingsRepository.setSnoozeEnabled(false)
     }
 
     // 4.5 緊急退避・4.6 戻るボタンでは lastVisitedAt / gatePassedDate を更新しないため、ここには処理を置かない。

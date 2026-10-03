@@ -118,9 +118,9 @@ class GateAccessibilityService : AccessibilityService() {
 
     private fun showSnooze(targetId: Long) {
         val now = container.clock.millis()
-        // 表示した時点で lastSnoozeShownAt を保存する（キャッシュにはすぐ反映する）
-        cache.markSnoozeShown(targetId, now)
-        container.applicationScope.launch { container.targetRepository.setLastSnoozeShownAt(targetId, now) }
+        // 表示した時点で lastSnoozeShownAt（アプリ全体）を保存する（キャッシュにはすぐ反映する）
+        cache.markSnoozeShown(now)
+        container.applicationScope.launch { container.settingsRepository.setLastSnoozeShownAt(now) }
         startActivity(
             Intent(this, SnoozeGateActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

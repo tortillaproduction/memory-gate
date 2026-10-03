@@ -94,15 +94,14 @@ class SnoozeGateActivity : ComponentActivity() {
     }
 
     /**
-     * 「スヌーズを止める」→ 確認ダイアログで「OFF にする」: その誘導先のスヌーズを OFF にし、
+     * 「スヌーズを止める」→ 確認ダイアログで「OFF にする」: アプリ全体のスヌーズを OFF にし、
      * スヌーズ用ゲートを閉じて元のアプリに戻る（ホームへは移動しない。lastVisitedAt と gatePassedDate は更新しない）
      */
     private fun stopSnooze() {
         if (closing) return
-        val target = viewModel.uiState.value.target ?: return
         closing = true
         lifecycleScope.launch {
-            appContainer.gateInteractor.onSnoozeStopped(target.id)
+            appContainer.gateInteractor.onSnoozeStopped()
             finish()
         }
     }

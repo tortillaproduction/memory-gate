@@ -11,25 +11,24 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
-/** SPEC 4.7 スヌーズの判定（ロケールに依存しないよう ASCII のメソッド名にしている） */
+/** SPEC 4.7 スヌーズの判定（設定はアプリ全体で 1 つ。ロケールに依存しないよう ASCII のメソッド名にしている） */
 class SnoozeLogicTest {
 
     private val zone: ZoneId = ZoneId.of("Asia/Tokyo")
     private val today: LocalDate = LocalDate.of(2026, 10, 2)
+    private val guarded = setOf("com.sns")
 
     private fun at(hour: Int, minute: Int = 0, date: LocalDate = today): Instant =
         LocalDateTime.of(date, LocalTime.of(hour, minute)).atZone(zone).toInstant()
 
-    private fun target(
-        id: Long = 1,
+    private fun settings(
         enabled: Boolean = true,
-        interval: Int? = 30,
-        start: Int? = 9 * 60,
-        end: Int? = 22 * 60,
-        lastVisitedAt: Long? = null,
-        lastShown: Long? = null,
-        createdAt: Long = id,
-    ) = Target(
+        interval: Int = 30,
+        start: Int = 9 * 60,
+        end: Int = 22 * 60,
+    ) = SnoozeSettings(enabled = enabled, intervalMinutes = interval, startMinutes = start, endMinutes = end)
+
+    private fun target(id: Long = 1, lastVisitedAt: Long? = null, createdAt: Long = id) = Target(
         id = id,
         title = "t$id",
         type = TargetType.URL,
@@ -38,203 +37,190 @@ class SnoozeLogicTest {
         intervalDays = 1,
         lastVisitedAt = lastVisitedAt,
         createdAt = createdAt,
-        snoozeEnabled = enabled,
-        snoozeIntervalMinutes = interval,
-        snoozeStartMinutes = start,
-        snoozeEndMinutes = end,
-        lastSnoozeShownAt = lastShown,
     )
+
+    private fun decide(
+        now: Instant,
+        targets: List<Target> = listOf(target()),
+        snooze: SnoozeSettings = settings(),
+        lastShown: Long? = null,
+        passed: LocalDate? = today,
+        pkg: String = "com.sns",
+        immediate: Boolean = false,
+    ) = SnoozeLogic.decideGate(pkg, now, zone, guarded, passed, targets, snooze, lastShown, immediate)
 
     // ---- isInSnoozeWindow ----
 
     @Test
     fun windowNormalRange() {
-        val t = target(start = 9 * 60, end = 22 * 60)
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(8, 59), zone))
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(9, 0), zone))
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(21, 59), zone))
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(22, 0), zone))
+        val s = settings(start = 9 * 60, end = 22 * 60)
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(8, 59), zone))
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(9, 0), zone))
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(21, 59), zone))
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(22, 0), zone))
     }
 
     @Test
     fun windowCrossesMidnight() {
-        val t = target(start = 22 * 60, end = 2 * 60)
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(22, 0), zone))
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(23, 59), zone))
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(0, 0), zone))
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(1, 59), zone))
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(2, 0), zone))
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(12, 0), zone))
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(21, 59), zone))
+        val s = settings(start = 22 * 60, end = 2 * 60)
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(22, 0), zone))
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(23, 59), zone))
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(0, 0), zone))
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(1, 59), zone))
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(2, 0), zone))
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(12, 0), zone))
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(21, 59), zone))
     }
 
     @Test
     fun windowStartEqualsEndMeansAllDay() {
-        val t = target(start = 10 * 60, end = 10 * 60)
-        for (hour in 0..23) assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(hour, 30), zone))
+        val s = settings(start = 10 * 60, end = 10 * 60)
+        for (hour in 0..23) assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(hour, 30), zone))
     }
 
     @Test
-    fun windowDefaultsTo9To22WhenUnset() {
-        val t = target(start = null, end = null)
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(8, 59), zone))
-        assertTrue(SnoozeLogic.isInSnoozeWindow(t, at(9, 0), zone))
-        assertFalse(SnoozeLogic.isInSnoozeWindow(t, at(22, 0), zone))
+    fun defaultsAreOffAnd9To22Every30Minutes() {
+        val s = SnoozeSettings()
+        assertFalse(s.enabled)
+        assertEquals(30, s.intervalMinutes)
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(8, 59), zone))
+        assertTrue(SnoozeLogic.isInSnoozeWindow(s, at(9, 0), zone))
+        assertFalse(SnoozeLogic.isInSnoozeWindow(s, at(22, 0), zone))
     }
 
     // ---- isSnoozeReady ----
 
     @Test
     fun readyWhenAllConditionsHold() {
-        assertTrue(SnoozeLogic.isSnoozeReady(target(), at(12), zone))
+        assertTrue(SnoozeLogic.isSnoozeReady(settings(), null, at(12), zone))
     }
 
     @Test
-    fun notReadyWhenDisabled() {
-        assertFalse(SnoozeLogic.isSnoozeReady(target(enabled = false), at(12), zone))
+    fun notReadyWhenDisabledOrOutsideWindow() {
+        assertFalse(SnoozeLogic.isSnoozeReady(settings(enabled = false), null, at(12), zone))
+        assertFalse(SnoozeLogic.isSnoozeReady(settings(), null, at(23), zone))
     }
 
     @Test
-    fun readyEvenWhenVisitedIfInWindow() {
-        // 今日訪問済み（1日ごと）で期限切れではなくても、時間帯の中ならスヌーズする（v0.1.6）
-        val visitedToday = target(lastVisitedAt = at(8).toEpochMilli())
-        assertTrue(SnoozeLogic.isSnoozeReady(visitedToday, at(12), zone))
-        // 時間帯の外では出さない
-        assertFalse(SnoozeLogic.isSnoozeReady(visitedToday, at(23), zone))
-        // 訪問済みでも OFF にしたら出さない
-        assertFalse(SnoozeLogic.isSnoozeReady(visitedToday.copy(snoozeEnabled = false), at(12), zone))
-    }
-
-    @Test
-    fun visitedTargetIsShownAgainNextDayInWindow() {
-        // 昨日の時間帯の最後に表示し、今日の時間帯の開始で再び表示する
-        val t = target(lastVisitedAt = at(21, date = today.minusDays(1)).toEpochMilli(), lastShown = at(21, 59, date = today.minusDays(1)).toEpochMilli())
-        assertFalse(SnoozeLogic.isSnoozeReady(t, at(8, 59), zone))
-        assertTrue(SnoozeLogic.isSnoozeReady(t, at(9), zone))
-    }
-
-    @Test
-    fun notReadyOutsideWindow() {
-        assertFalse(SnoozeLogic.isSnoozeReady(target(), at(23), zone))
-    }
-
-    @Test
-    fun intervalSinceLastShown() {
+    fun intervalCountedFromGlobalLastShown() {
         val now = at(12)
-        val shown29MinAgo = target(interval = 30, lastShown = now.minusSeconds(29 * 60).toEpochMilli())
-        val shown30MinAgo = target(interval = 30, lastShown = now.minusSeconds(30 * 60).toEpochMilli())
-        assertFalse(SnoozeLogic.isSnoozeReady(shown29MinAgo, now, zone))
-        assertTrue(SnoozeLogic.isSnoozeReady(shown30MinAgo, now, zone))
-        val shown1MinAgo = target(interval = 1, lastShown = now.minusSeconds(60).toEpochMilli())
-        assertTrue(SnoozeLogic.isSnoozeReady(shown1MinAgo, now, zone))
-        val shown59MinAgo = target(interval = 60, lastShown = now.minusSeconds(59 * 60).toEpochMilli())
-        assertFalse(SnoozeLogic.isSnoozeReady(shown59MinAgo, now, zone))
-    }
-
-    @Test
-    fun intervalDefaultsTo30Minutes() {
-        val now = at(12)
-        assertFalse(SnoozeLogic.isSnoozeReady(target(interval = null, lastShown = now.minusSeconds(29 * 60).toEpochMilli()), now, zone))
-        assertTrue(SnoozeLogic.isSnoozeReady(target(interval = null, lastShown = now.minusSeconds(30 * 60).toEpochMilli()), now, zone))
+        assertFalse(SnoozeLogic.isSnoozeReady(settings(interval = 30), now.minusSeconds(29 * 60).toEpochMilli(), now, zone))
+        assertTrue(SnoozeLogic.isSnoozeReady(settings(interval = 30), now.minusSeconds(30 * 60).toEpochMilli(), now, zone))
+        assertTrue(SnoozeLogic.isSnoozeReady(settings(interval = 1), now.minusSeconds(60).toEpochMilli(), now, zone))
+        assertFalse(SnoozeLogic.isSnoozeReady(settings(interval = 60), now.minusSeconds(59 * 60).toEpochMilli(), now, zone))
     }
 
     // ---- selectSnoozeTarget ----
 
     @Test
-    fun selectUsesGateOrder() {
-        val now = at(12)
-        val old = target(id = 1, lastVisitedAt = at(12, date = today.minusDays(5)).toEpochMilli(), createdAt = 1)
-        val never2 = target(id = 2, createdAt = 20)
-        val never3 = target(id = 3, createdAt = 10)
-        val disabled = target(id = 4, enabled = false, createdAt = 0)
-        assertEquals(3L, SnoozeLogic.selectSnoozeTarget(listOf(old, never2, never3, disabled), now, zone)?.id)
-        assertEquals(1L, SnoozeLogic.selectSnoozeTarget(listOf(old, disabled), now, zone)?.id)
-        assertNull(SnoozeLogic.selectSnoozeTarget(listOf(disabled), now, zone))
+    fun targetIsChosenByLastVisitedOrder() {
+        // 未訪問が最優先 → lastVisitedAt の古い順 → createdAt の古い順。期限切れかどうかは問わない
+        val visitedToday = target(id = 1, lastVisitedAt = at(8).toEpochMilli(), createdAt = 1)
+        val visitedLongAgo = target(id = 2, lastVisitedAt = at(8, date = today.minusDays(5)).toEpochMilli(), createdAt = 2)
+        val neverNewer = target(id = 3, createdAt = 30)
+        val neverOlder = target(id = 4, createdAt = 20)
+        assertEquals(4L, SnoozeLogic.selectSnoozeTarget(listOf(visitedToday, visitedLongAgo, neverNewer, neverOlder))?.id)
+        assertEquals(2L, SnoozeLogic.selectSnoozeTarget(listOf(visitedToday, visitedLongAgo))?.id)
+        // 期限切れでない（今日訪問済み）誘導先しかなくても選ぶ
+        assertEquals(1L, SnoozeLogic.selectSnoozeTarget(listOf(visitedToday))?.id)
+        assertNull(SnoozeLogic.selectSnoozeTarget(emptyList()))
+    }
+
+    @Test
+    fun openingMovesToNextTarget() {
+        // 「開く」で lastVisitedAt が更新されると、次回は別の誘導先が選ばれる
+        val a = target(id = 1, lastVisitedAt = at(8).toEpochMilli())
+        val b = target(id = 2, lastVisitedAt = at(9).toEpochMilli())
+        assertEquals(1L, SnoozeLogic.selectSnoozeTarget(listOf(a, b))?.id)
+        val aOpened = a.copy(lastVisitedAt = at(12).toEpochMilli())
+        assertEquals(2L, SnoozeLogic.selectSnoozeTarget(listOf(aOpened, b))?.id)
     }
 
     // ---- decideGate ----
 
     @Test
     fun normalGateHasPriority() {
-        val decision = SnoozeLogic.decideGate("com.sns", at(12), zone, setOf("com.sns"), null, listOf(target()))
-        assertEquals(GateDecision.Normal, decision)
-    }
-
-    @Test
-    fun snoozeContinuesAfterOpeningFromSnoozeGate() {
-        // スヌーズ用ゲートの「開く」で lastVisitedAt と gatePassedDate を更新した後も、間隔が経過すればまた表示する
-        val opened = at(12).toEpochMilli()
-        val t = target(interval = 30, lastVisitedAt = opened, lastShown = opened)
-        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.sns", at(12, 29), zone, setOf("com.sns"), today, listOf(t)))
-        assertEquals(GateDecision.Snooze(t), SnoozeLogic.decideGate("com.sns", at(12, 30), zone, setOf("com.sns"), today, listOf(t)))
-        // OFF にしたら表示しない
-        val off = t.copy(snoozeEnabled = false)
-        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.sns", at(12, 30), zone, setOf("com.sns"), today, listOf(off)))
+        assertEquals(GateDecision.Normal, decide(at(12), passed = null))
     }
 
     @Test
     fun snoozeWhenGateAlreadyPassedToday() {
         val t = target()
-        val decision = SnoozeLogic.decideGate("com.sns", at(12), zone, setOf("com.sns"), today, listOf(t))
-        assertEquals(GateDecision.Snooze(t), decision)
+        assertEquals(GateDecision.Snooze(t), decide(at(12), listOf(t)))
     }
 
     @Test
-    fun noneForUnguardedAppOrWhenNotReady() {
-        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.other", at(12), zone, setOf("com.sns"), today, listOf(target())))
-        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.sns", at(23), zone, setOf("com.sns"), today, listOf(target())))
-        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.sns", at(12), zone, setOf("com.sns"), today, listOf(target(enabled = false))))
+    fun snoozeEvenWhenNoTargetIsDue() {
+        // すべて今日訪問済み（期限切れなし）→ 通常のゲートは出ず、スヌーズ用ゲートは出る
+        val t = target(lastVisitedAt = at(8).toEpochMilli())
+        assertEquals(GateDecision.Snooze(t), decide(at(12), listOf(t), passed = null))
+    }
+
+    @Test
+    fun noneWhenOffOutsideWindowIntervalOrNoTargets() {
+        assertEquals(GateDecision.None, decide(at(12), pkg = "com.other"))
+        assertEquals(GateDecision.None, decide(at(23)))
+        assertEquals(GateDecision.None, decide(at(12), snooze = settings(enabled = false)))
+        assertEquals(GateDecision.None, decide(at(12), lastShown = at(11, 45).toEpochMilli()))
+        assertEquals(GateDecision.None, decide(at(12), targets = emptyList()))
+    }
+
+    @Test
+    fun immediateIgnoresIntervalOnSwitch() {
+        // 切り替え時は、前回の表示から間隔がたっていなくても表示する
+        val t = target()
+        val shownJustNow = at(11, 59).toEpochMilli()
+        assertEquals(GateDecision.None, decide(at(12), listOf(t), lastShown = shownJustNow))
+        assertEquals(GateDecision.Snooze(t), decide(at(12), listOf(t), lastShown = shownJustNow, immediate = true))
+        // OFF・時間帯の外・誘導先なし・監視対象外では、切り替え時でも表示しない。通常のゲートが優先
+        assertEquals(GateDecision.None, decide(at(12), snooze = settings(enabled = false), immediate = true))
+        assertEquals(GateDecision.None, decide(at(23), immediate = true))
+        assertEquals(GateDecision.None, decide(at(12), targets = emptyList(), immediate = true))
+        assertEquals(GateDecision.None, decide(at(12), pkg = "com.other", immediate = true))
+        assertEquals(GateDecision.Normal, decide(at(12), passed = null, immediate = true))
     }
 
     // ---- nextSnoozeReadyAt ----
 
     @Test
     fun nextReadyIsNowWhenAlreadyReady() {
-        assertEquals(at(12), SnoozeLogic.nextSnoozeReadyAt(listOf(target()), at(12), zone))
+        assertEquals(at(12), SnoozeLogic.nextSnoozeReadyAt(settings(), null, listOf(target()), at(12), zone))
     }
 
     @Test
     fun nextReadyAfterInterval() {
         val shown = at(12).toEpochMilli()
-        assertEquals(at(12, 5), SnoozeLogic.nextSnoozeReadyAt(listOf(target(interval = 5, lastShown = shown)), at(12, 1), zone))
+        assertEquals(at(12, 5), SnoozeLogic.nextSnoozeReadyAt(settings(interval = 5), shown, listOf(target()), at(12, 1), zone))
     }
 
     @Test
     fun nextReadyWaitsForWindowStart() {
-        // 8:00 → 当日 9:00
-        assertEquals(at(9), SnoozeLogic.nextSnoozeReadyAt(listOf(target()), at(8), zone))
-        // 23:00 → 翌日 9:00
-        assertEquals(at(9, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(listOf(target()), at(23), zone))
+        // 8:00 → 当日 9:00、23:00 → 翌日 9:00
+        assertEquals(at(9), SnoozeLogic.nextSnoozeReadyAt(settings(), null, listOf(target()), at(8), zone))
+        assertEquals(at(9, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(settings(), null, listOf(target()), at(23), zone))
         // 間隔が明けるのが時間帯の外（21:50 表示・60 分）→ 翌日 9:00
         val shown = at(21, 50).toEpochMilli()
-        assertEquals(at(9, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(listOf(target(interval = 60, lastShown = shown)), at(21, 55), zone))
+        assertEquals(at(9, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(settings(interval = 60), shown, listOf(target()), at(21, 55), zone))
     }
 
     @Test
     fun nextReadyDoesNotWaitUntilDue() {
-        // 今日訪問済み（1日ごと）でも、期限切れになる翌日まで待たない（v0.1.6）
+        // 今日訪問済みでも、期限切れになる翌日まで待たない
         val visited = target(lastVisitedAt = at(8).toEpochMilli())
-        assertEquals(at(12), SnoozeLogic.nextSnoozeReadyAt(listOf(visited), at(12), zone))
-        // 訪問と同時に表示した場合は、前回の表示 + 間隔
-        val opened = at(12).toEpochMilli()
-        val openedFromSnooze = target(interval = 5, lastVisitedAt = opened, lastShown = opened)
-        assertEquals(at(12, 5), SnoozeLogic.nextSnoozeReadyAt(listOf(openedFromSnooze), at(12, 1), zone))
+        assertEquals(at(12), SnoozeLogic.nextSnoozeReadyAt(settings(), null, listOf(visited), at(12), zone))
     }
 
     @Test
-    fun nextReadyIsEarliestAmongEnabledTargets() {
-        val a = target(id = 1, interval = 60, lastShown = at(12).toEpochMilli())
-        val b = target(id = 2, interval = 5, lastShown = at(12).toEpochMilli())
-        val off = target(id = 3, enabled = false)
-        assertEquals(at(12, 5), SnoozeLogic.nextSnoozeReadyAt(listOf(a, b, off), at(12, 1), zone))
-        assertNull(SnoozeLogic.nextSnoozeReadyAt(listOf(off), at(12), zone))
+    fun nextReadyNullWhenOffOrNoTargets() {
+        assertNull(SnoozeLogic.nextSnoozeReadyAt(settings(enabled = false), null, listOf(target()), at(12), zone))
+        assertNull(SnoozeLogic.nextSnoozeReadyAt(settings(), null, emptyList(), at(12), zone))
     }
 
     @Test
     fun nextReadyInCrossMidnightWindow() {
-        val t = target(start = 22 * 60, end = 2 * 60)
-        assertEquals(at(22), SnoozeLogic.nextSnoozeReadyAt(listOf(t), at(12), zone))
-        assertEquals(at(1), SnoozeLogic.nextSnoozeReadyAt(listOf(t), at(1), zone))
+        val s = settings(start = 22 * 60, end = 2 * 60)
+        assertEquals(at(22), SnoozeLogic.nextSnoozeReadyAt(s, null, listOf(target()), at(12), zone))
+        assertEquals(at(1), SnoozeLogic.nextSnoozeReadyAt(s, null, listOf(target()), at(1), zone))
     }
 }
 

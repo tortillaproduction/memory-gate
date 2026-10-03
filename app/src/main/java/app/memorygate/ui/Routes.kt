@@ -8,6 +8,7 @@ object Routes {
     const val GUARDED_APPS = "guarded_apps"
     const val TARGET_EDIT = "target/{targetId}"
     const val ONBOARDING = "onboarding?step={step}"
+    const val SNOOZE_SETTINGS = "snooze_settings"
 
     /** id = 0 は新規作成 */
     fun targetEdit(id: Long) = "target/$id"

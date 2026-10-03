@@ -26,8 +26,9 @@ import kotlinx.coroutines.launch
 /**
  * 指定アプリの起動を検知してゲート画面を表示する（SPEC 5 章）。画面の内容は読み取らない。
  *
- * - 監視対象アプリが前面に来たら、通常のゲート → スヌーズ用ゲートの順に判定する
- * - 監視対象アプリが前面にある間は、次にスヌーズが可能になる時刻にタイマーを設定し、発火したら再判定する
+ * - 監視対象アプリが前面に来たら、通常のゲート → スヌーズ用ゲートの順に判定する。別のアプリからの切り替えなら、
+ *   スヌーズは間隔に関係なくすぐに出す（自アプリ・IME・SystemUI を経由して同じアプリに戻った場合は切り替えとみなさない）
+ * - 監視対象アプリが前面にある間は、次にスヌーズが可能になる時刻にタイマーを設定し、発火したら再判定する（定期表示）
  * - 判定はすべてメモリ上のキャッシュ（[GateStateCache]）で行い、イベントごとに DB を読まない
  *
  * バックグラウンドからの Activity 起動は「システムにバインドされた AccessibilityService」の例外で
@@ -42,6 +43,9 @@ class GateAccessibilityService : AccessibilityService() {
 
     /** 直前にフォアグラウンドになったパッケージ（デバウンス用） */
     private var lastPackage: String? = null
+
+    /** 監視対象アプリへの「切り替え」の判定（自アプリ・IME・SystemUI を除いた直前の前面を覚えておく） */
+    private lateinit var foregroundTracker: ForegroundTracker
 
     /** 前面にある監視対象アプリ（自アプリ・IME・SystemUI が一時的に前面に来ても保持する） */
     private var foregroundGuarded: String? = null
@@ -68,6 +72,7 @@ class GateAccessibilityService : AccessibilityService() {
         // 購読を開始してメモリ上にキャッシュする
         cache = container.gateStateCache
         imePackages = loadImePackages()
+        foregroundTracker = ForegroundTracker(packageName)
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
@@ -85,12 +90,14 @@ class GateAccessibilityService : AccessibilityService() {
         if (!::cache.isInitialized) return
 
         val guarded = cache.snapshot.value?.guardedPackages.orEmpty()
-        when (SnoozeInterruptPolicy.classify(pkg, packageName, guarded, imePackages)) {
+        val change = foregroundTracker.onForeground(pkg, guarded, imePackages)
+        when (change.kind) {
             // 自アプリ（ゲート画面自身など）・IME・SystemUI は判定せず、タイマーも止めない
             ForegroundKind.TRANSIENT -> Unit
             ForegroundKind.GUARDED -> {
                 foregroundGuarded = pkg
-                evaluate(pkg)
+                // 別のアプリから切り替えてきたときは、間隔に関係なくすぐにスヌーズ用ゲートを出す
+                evaluate(pkg, switched = change.switched)
             }
             ForegroundKind.OTHER -> {
                 foregroundGuarded = null
@@ -99,12 +106,15 @@ class GateAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** 通常のゲート → スヌーズ用ゲートの順に判定し、どちらも出ないときはタイマーを設定する */
-    private fun evaluate(pkg: String) {
+    /**
+     * 通常のゲート → スヌーズ用ゲートの順に判定し、どちらも出ないときはタイマーを設定する。
+     * [switched]（監視対象アプリへの切り替え）なら、スヌーズは間隔に関係なく出す
+     */
+    private fun evaluate(pkg: String, switched: Boolean = false) {
         cancelTimer()
         // 画面がオフのときは表示しない（画面が点いたら再判定する）
         if (!isInteractive()) return
-        when (val decision = cache.decide(pkg)) {
+        when (val decision = cache.decide(pkg, switched)) {
             GateDecision.Normal -> startActivity(
                 Intent(this, GateActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -118,9 +128,9 @@ class GateAccessibilityService : AccessibilityService() {
 
     private fun showSnooze(targetId: Long) {
         val now = container.clock.millis()
-        // 表示した時点で lastSnoozeShownAt を保存する（キャッシュにはすぐ反映する）
-        cache.markSnoozeShown(targetId, now)
-        container.applicationScope.launch { container.targetRepository.setLastSnoozeShownAt(targetId, now) }
+        // 表示した時点で lastSnoozeShownAt（アプリ全体）を保存する（キャッシュにはすぐ反映する）
+        cache.markSnoozeShown(now)
+        container.applicationScope.launch { container.settingsRepository.setLastSnoozeShownAt(now) }
         startActivity(
             Intent(this, SnoozeGateActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

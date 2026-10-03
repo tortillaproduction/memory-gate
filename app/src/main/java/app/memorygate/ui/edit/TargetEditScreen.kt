@@ -180,10 +180,6 @@ fun TargetEditScreen(
             HorizontalDivider()
             SnoozeSection(
                 state = state,
-                onEnabledChange = viewModel::setSnoozeEnabled,
-                onIntervalChange = viewModel::setSnoozeInterval,
-                onStartChange = viewModel::setSnoozeStart,
-                onEndChange = viewModel::setSnoozeEnd,
                 onImagePicked = viewModel::importSnoozeImage,
                 onImageRemoved = viewModel::removeSnoozeImage,
             )

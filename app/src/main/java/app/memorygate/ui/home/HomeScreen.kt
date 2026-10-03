@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,6 +64,7 @@ fun HomeScreen(
     onEditTarget: (id: Long) -> Unit,
     onOpenGuardedApps: () -> Unit,
     onOpenOnboarding: () -> Unit,
+    onOpenSnoozeSettings: () -> Unit,
     banner: @Composable () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -90,6 +93,13 @@ fun HomeScreen(
                             onClick = {
                                 menuExpanded = false
                                 onOpenGuardedApps()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("スヌーズ設定") },
+                            onClick = {
+                                menuExpanded = false
+                                onOpenSnoozeSettings()
                             },
                         )
                         DropdownMenuItem(
@@ -127,6 +137,19 @@ fun HomeScreen(
                     onDismiss = { viewModel.dismissUpdate(update.version) },
                 )
             }
+            // スヌーズの状態（1 行）。タップでスヌーズ設定を開く
+            ListItem(
+                modifier = Modifier.clickable(onClick = onOpenSnoozeSettings),
+                leadingContent = { Icon(Icons.Filled.Snooze, contentDescription = null) },
+                headlineContent = {
+                    Text(
+                        state.snoozeStatus,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+            )
             if (state.gatePassedToday) {
                 ListItem(
                     leadingContent = {

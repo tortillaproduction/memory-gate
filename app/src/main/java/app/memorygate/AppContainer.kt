@@ -9,6 +9,7 @@ import app.memorygate.data.GuardedAppRepository
 import app.memorygate.data.RoomGuardedAppRepository
 import app.memorygate.data.RoomTargetRepository
 import app.memorygate.data.SettingsRepository
+import app.memorygate.data.SnoozeSettingsMigrator
 import app.memorygate.data.TargetRepository
 import app.memorygate.data.db.AppDatabase
 import app.memorygate.gate.GateInteractor
@@ -39,6 +40,9 @@ class AppContainer(context: Context) {
     val guardedAppRepository: GuardedAppRepository by lazy { RoomGuardedAppRepository(database.guardedAppDao()) }
     val settingsRepository: SettingsRepository by lazy { DataStoreSettingsRepository(appContext.settingsDataStore) }
     val installedAppsRepository: InstalledAppsRepository by lazy { InstalledAppsRepository(appContext) }
+
+    /** v0.1.6 までの誘導先ごとのスヌーズ設定の引き継ぎ（起動時に 1 回だけ） */
+    val snoozeSettingsMigrator: SnoozeSettingsMigrator by lazy { SnoozeSettingsMigrator(targetRepository, settingsRepository) }
 
     val gateStateCache: GateStateCache by lazy {
         GateStateCache(applicationScope, targetRepository, guardedAppRepository, settingsRepository, clock)

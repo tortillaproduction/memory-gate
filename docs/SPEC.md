@@ -53,14 +53,11 @@ SNS 等の暇つぶしアプリ（以下「監視対象アプリ」）を開い�
 | dayOfWeek | Int? | WEEKLY のとき 1(月)〜7(日)。`java.time.DayOfWeek` の値 |
 | lastVisitedAt | Long? | 最後にゲートから開いた日時 (epoch millis)。null = 未訪問 |
 | createdAt | Long | 作成日時 (epoch millis) |
-| snoozeEnabled | Boolean（既定 false） | スヌーズの ON/OFF。OFF にしても下記のスヌーズ設定は保持する |
-| snoozeIntervalMinutes | Int? | スヌーズの間隔。1 / 5 / 30 / 60 のいずれか（null は既定の 30） |
-| snoozeStartMinutes | Int? | スヌーズする時間帯の開始（0:00 からの分数）。既定 540（9:00） |
-| snoozeEndMinutes | Int? | スヌーズする時間帯の終了（0:00 からの分数）。既定 1320（22:00） |
 | snoozeImagePath | String? | スヌーズ用ゲートに表示する画像（アプリ内部ストレージのファイルパス） |
-| lastSnoozeShownAt | Long? | スヌーズ用ゲートを最後に表示した日時 (epoch millis) |
+| snoozeEnabled / snoozeIntervalMinutes / snoozeStartMinutes / snoozeEndMinutes / lastSnoozeShownAt | | v0.1.6 までの誘導先ごとのスヌーズ設定。v0.1.7 からは使わない（3.3 の引き継ぎでだけ読む）。Room の列は削除せずに残す |
 
 スヌーズの列は v0.1.4 で追加した（Room の DB バージョン 1 → 2）。既存のデータを保持するマイグレーションを用意し、書き出したスキーマ（`app/schemas`）を使ってユニットテストで検証する。
+v0.1.7 でスヌーズの設定をアプリ全体で 1 つにした（3.3）。誘導先ごとに残すのは `snoozeImagePath` だけ。DB のバージョンは上げない。
 
 UI 上のスケジュール選択肢は次の 4 種類:
 「1日ごと」「3日ごと」「1週間ごと」「毎週〇曜日」（曜日を選択）
@@ -82,6 +79,16 @@ UI 上のスケジュール選択肢は次の 4 種類:
 | updateLatestVersion | String? | 確認で見つかった、現在より新しいバージョン（例: `0.1.3`。先頭の `v` は除く） |
 | updateLatestUrl | String? | そのバージョンのリリースページの URL（`html_url`） |
 | updateDismissedVersion | String? | ホームのお知らせバナーを「×」で閉じたバージョン |
+| snoozeEnabled | Boolean（既定 false） | スヌーズの ON/OFF（アプリ全体）。OFF にしても下記のスヌーズ設定は保持する |
+| snoozeIntervalMinutes | Int（既定 30） | スヌーズの間隔。1 / 5 / 30 / 60 のいずれか |
+| snoozeStartMinutes | Int（既定 540） | スヌーズする時間帯の開始（0:00 からの分数。540 = 9:00） |
+| snoozeEndMinutes | Int（既定 1320） | スヌーズする時間帯の終了（0:00 からの分数。1320 = 22:00） |
+| lastSnoozeShownAt | Long? (epoch millis) | スヌーズ用ゲートを最後に表示した日時（アプリ全体） |
+| snoozeSettingsMigrated | Boolean | v0.1.6 までの誘導先ごとのスヌーズ設定の引き継ぎが完了したか |
+
+**スヌーズ設定の引き継ぎ（v0.1.7）**: アップデート後の初回起動時に 1 回だけ行い、完了したら `snoozeSettingsMigrated = true` を保存する（設定と完了フラグは 1 回の書き込みで保存する）。
+- `snoozeEnabled = true` の誘導先がある: 全体の `snoozeEnabled = true`。そのうち 4.2 の並び順で先頭の誘導先の間隔・時間帯（NULL なら既定値）を全体の設定にする
+- `snoozeEnabled = true` の誘導先がない: 全体の設定は既定値（OFF）にする
 
 ---
 

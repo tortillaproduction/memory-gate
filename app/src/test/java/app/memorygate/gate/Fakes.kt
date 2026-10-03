@@ -4,6 +4,7 @@ import app.memorygate.data.GuardedAppRepository
 import app.memorygate.data.SettingsRepository
 import app.memorygate.data.StoredRelease
 import app.memorygate.data.TargetRepository
+import app.memorygate.domain.SnoozeSettings
 import app.memorygate.domain.Target
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,5 +66,24 @@ class FakeSettingsRepository : SettingsRepository {
     }
     override suspend fun setDismissedUpdateVersion(version: String) {
         dismissed.value = version
+    }
+    val snooze = MutableStateFlow(SnoozeSettings())
+    val lastSnoozeShown = MutableStateFlow<Long?>(null)
+    val snoozeMigrated = MutableStateFlow(false)
+    override val snoozeSettings: Flow<SnoozeSettings> = snooze
+    override val lastSnoozeShownAt: Flow<Long?> = lastSnoozeShown
+    override val snoozeSettingsMigrated: Flow<Boolean> = snoozeMigrated
+    override suspend fun setSnoozeEnabled(enabled: Boolean) = snooze.update { it.copy(enabled = enabled) }
+    override suspend fun setSnoozeIntervalMinutes(minutes: Int) = snooze.update { it.copy(intervalMinutes = minutes) }
+    override suspend fun setSnoozeStartMinutes(minutes: Int) = snooze.update { it.copy(startMinutes = minutes) }
+    override suspend fun setSnoozeEndMinutes(minutes: Int) = snooze.update { it.copy(endMinutes = minutes) }
+    override suspend fun setLastSnoozeShownAt(epochMillis: Long) {
+        lastSnoozeShown.value = epochMillis
+    }
+    override suspend fun migrateSnoozeSettings(settings: SnoozeSettings): Boolean {
+        if (snoozeMigrated.value) return false
+        snooze.value = settings
+        snoozeMigrated.value = true
+        return true
     }
 }

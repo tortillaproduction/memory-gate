@@ -7,10 +7,13 @@ import app.memorygate.BuildConfig
 import app.memorygate.domain.GateLogic
 import app.memorygate.domain.Target
 import app.memorygate.domain.TargetFormat
+import app.memorygate.update.ManualCheckResult
 import app.memorygate.update.UpdateChecker
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -27,6 +30,17 @@ data class HomeTargetItem(
 
 /** 新しいバージョンのお知らせ */
 data class UpdateBannerState(val version: String, val htmlUrl: String)
+
+/** アプリ情報の「アップデートを確認」の状態 */
+sealed interface ManualUpdateCheckState {
+    /** まだ確認していない */
+    data object Idle : ManualUpdateCheckState
+
+    /** 問い合わせ中 */
+    data object Checking : ManualUpdateCheckState
+
+    data class Done(val result: ManualCheckResult) : ManualUpdateCheckState
+}
 
 data class HomeUiState(
     val loading: Boolean = true,
@@ -68,11 +82,30 @@ class HomeViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     /**
-     * ホーム画面を表示したときに、新しいバージョンを確認する（前回から 12 時間以上たっている場合だけ問い合わせる）。
+     * ホーム画面を表示したときに、新しいバージョンを確認する（前回から 1 時間以上たっている場合だけ問い合わせる）。
      * 画面を離れても取り消されないよう、アプリのスコープで実行する。
      */
     fun checkForUpdate() {
         container.applicationScope.launch { container.updateChecker.checkIfDue() }
+    }
+
+    private val _manualCheck = MutableStateFlow<ManualUpdateCheckState>(ManualUpdateCheckState.Idle)
+    val manualCheck: StateFlow<ManualUpdateCheckState> = _manualCheck.asStateFlow()
+    private var manualCheckJob: Job? = null
+
+    /** アプリ情報の「アップデートを確認」: 前回の確認日時にかかわらず、すぐに問い合わせる */
+    fun checkForUpdateNow() {
+        if (manualCheckJob?.isActive == true) return
+        _manualCheck.value = ManualUpdateCheckState.Checking
+        manualCheckJob = viewModelScope.launch {
+            _manualCheck.value = ManualUpdateCheckState.Done(container.updateChecker.checkNow())
+        }
+    }
+
+    /** アプリ情報を閉じたら、確認の結果の表示を消す */
+    fun resetManualCheck() {
+        manualCheckJob?.cancel()
+        _manualCheck.value = ManualUpdateCheckState.Idle
     }
 
     /** 「×」: そのバージョンについてはバナーを閉じる */

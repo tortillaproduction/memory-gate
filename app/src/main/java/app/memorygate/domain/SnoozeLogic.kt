@@ -50,9 +50,19 @@ object SnoozeLogic {
         return now.toEpochMilli() - lastShownAt >= settings.intervalMinutes * MILLIS_PER_MINUTE
     }
 
-    /** スヌーズ用ゲートを出せる状態か: スヌーズ ON・時間帯の中・前回の表示から間隔が経過 */
-    fun isSnoozeReady(settings: SnoozeSettings, lastShownAt: Long?, now: Instant, zone: ZoneId): Boolean =
-        settings.enabled && isInSnoozeWindow(settings, now, zone) && isIntervalElapsed(settings, lastShownAt, now)
+    /**
+     * スヌーズ用ゲートを出せる状態か: スヌーズ ON・時間帯の中・前回の表示から間隔が経過。
+     * [immediate]（監視対象アプリへの切り替え時の即時表示。SPEC 5 章）なら間隔は問わない
+     */
+    fun isSnoozeReady(
+        settings: SnoozeSettings,
+        lastShownAt: Long?,
+        now: Instant,
+        zone: ZoneId,
+        immediate: Boolean = false,
+    ): Boolean = settings.enabled &&
+        isInSnoozeWindow(settings, now, zone) &&
+        (immediate || isIntervalElapsed(settings, lastShownAt, now))
 
     /**
      * スヌーズ用ゲートに表示する誘導先。すべての誘導先の中から SPEC 4.2 と同じ並び順で先頭の 1 件（期限切れかどうかは問わない）。
@@ -63,6 +73,8 @@ object SnoozeLogic {
     /**
      * 表示するゲートを決める。通常のゲートの条件（SPEC 4.3）を満たすときは通常のゲートを優先し、
      * 満たさないときにスヌーズを判定する。監視対象アプリでなければ何も出さない。
+     *
+     * @param immediate 監視対象アプリへの切り替え時の即時表示（間隔を問わない。SPEC 5 章）
      */
     fun decideGate(
         packageName: String,
@@ -73,13 +85,14 @@ object SnoozeLogic {
         targets: List<Target>,
         settings: SnoozeSettings,
         lastShownAt: Long?,
+        immediate: Boolean = false,
     ): GateDecision {
         if (packageName !in guardedPackages) return GateDecision.None
         val today = now.atZone(zone).toLocalDate()
         if (GateLogic.shouldShowGate(packageName, today, zone, guardedPackages, gatePassedDate, targets)) {
             return GateDecision.Normal
         }
-        if (!isSnoozeReady(settings, lastShownAt, now, zone)) return GateDecision.None
+        if (!isSnoozeReady(settings, lastShownAt, now, zone, immediate)) return GateDecision.None
         return selectSnoozeTarget(targets)?.let { GateDecision.Snooze(it) } ?: GateDecision.None
     }
 

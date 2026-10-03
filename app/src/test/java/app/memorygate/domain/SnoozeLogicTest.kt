@@ -46,7 +46,8 @@ class SnoozeLogicTest {
         lastShown: Long? = null,
         passed: LocalDate? = today,
         pkg: String = "com.sns",
-    ) = SnoozeLogic.decideGate(pkg, now, zone, guarded, passed, targets, snooze, lastShown)
+        immediate: Boolean = false,
+    ) = SnoozeLogic.decideGate(pkg, now, zone, guarded, passed, targets, snooze, lastShown, immediate)
 
     // ---- isInSnoozeWindow ----
 
@@ -162,6 +163,21 @@ class SnoozeLogicTest {
         assertEquals(GateDecision.None, decide(at(12), snooze = settings(enabled = false)))
         assertEquals(GateDecision.None, decide(at(12), lastShown = at(11, 45).toEpochMilli()))
         assertEquals(GateDecision.None, decide(at(12), targets = emptyList()))
+    }
+
+    @Test
+    fun immediateIgnoresIntervalOnSwitch() {
+        // 切り替え時は、前回の表示から間隔がたっていなくても表示する
+        val t = target()
+        val shownJustNow = at(11, 59).toEpochMilli()
+        assertEquals(GateDecision.None, decide(at(12), listOf(t), lastShown = shownJustNow))
+        assertEquals(GateDecision.Snooze(t), decide(at(12), listOf(t), lastShown = shownJustNow, immediate = true))
+        // OFF・時間帯の外・誘導先なし・監視対象外では、切り替え時でも表示しない。通常のゲートが優先
+        assertEquals(GateDecision.None, decide(at(12), snooze = settings(enabled = false), immediate = true))
+        assertEquals(GateDecision.None, decide(at(23), immediate = true))
+        assertEquals(GateDecision.None, decide(at(12), targets = emptyList(), immediate = true))
+        assertEquals(GateDecision.None, decide(at(12), pkg = "com.other", immediate = true))
+        assertEquals(GateDecision.Normal, decide(at(12), passed = null, immediate = true))
     }
 
     // ---- nextSnoozeReadyAt ----

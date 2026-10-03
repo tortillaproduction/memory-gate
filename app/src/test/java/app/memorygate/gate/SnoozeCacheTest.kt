@@ -122,4 +122,26 @@ class SnoozeCacheTest {
         assertEquals(GateDecision.None, cache.decide("com.sns"))
         assertNull(cache.nextSnoozeReadyAt())
     }
+
+    /** 切り替え時は間隔に関係なく表示する。「開く」で開いた先のパッケージでは、間隔が経過するまで即時表示しない */
+    @Test
+    fun switchShowsImmediatelyExceptInOpenedPackage() = runTest {
+        val cache = GateStateCache(
+            CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
+            FakeTargetRepository(listOf(target)),
+            FakeGuardedAppRepository(setOf("com.sns", "com.android.chrome")),
+            snoozeOn(),
+            clock,
+        )
+        cache.markSnoozeShown(now.minusSeconds(60).toEpochMilli())
+        // 定期表示（切り替えではない）は間隔を待つ
+        assertEquals(GateDecision.None, cache.decide("com.sns"))
+        // 切り替え時はすぐ表示する
+        assertEquals(GateDecision.Snooze(target), cache.decide("com.sns", switched = true))
+
+        // スヌーズ用ゲートの「開く」で開いたブラウザ（監視対象）では、即時表示しない（堂々巡りの防止）
+        cache.markSnoozeOpened("com.android.chrome")
+        assertEquals(GateDecision.None, cache.decide("com.android.chrome", switched = true))
+        assertEquals(GateDecision.Snooze(target), cache.decide("com.sns", switched = true))
+    }
 }

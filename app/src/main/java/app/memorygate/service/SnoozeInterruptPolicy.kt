@@ -1,5 +1,7 @@
 package app.memorygate.service
 
+import app.memorygate.domain.SnoozeLogic
+import app.memorygate.domain.SnoozeSettings
 import java.time.Instant
 
 /** 前面に来たアプリの分類（SPEC 5 章のスヌーズの割り込み） */
@@ -38,5 +40,43 @@ object SnoozeInterruptPolicy {
     fun timerDelayMillis(nextReadyAt: Instant?, now: Instant): Long? {
         nextReadyAt ?: return null
         return maxOf(MIN_DELAY_MILLIS, nextReadyAt.toEpochMilli() - now.toEpochMilli())
+    }
+
+    /**
+     * 切り替え時の即時表示をしてよいか（SPEC 5 章の堂々巡りの防止）。
+     * スヌーズ用ゲートの「開く」で開いた先のパッケージ（[openedPackage]）では、前回の表示から間隔が経過するまで即時表示しない
+     */
+    fun allowImmediate(
+        packageName: String,
+        openedPackage: String?,
+        settings: SnoozeSettings,
+        lastShownAt: Long?,
+        now: Instant,
+    ): Boolean = packageName != openedPackage || SnoozeLogic.isIntervalElapsed(settings, lastShownAt, now)
+}
+
+/** 前面に来たアプリの判定結果 */
+data class ForegroundChange(
+    val kind: ForegroundKind,
+    /** 監視対象アプリへの切り替えか（直前の前面が監視対象アプリ以外、または別の監視対象アプリ） */
+    val switched: Boolean,
+)
+
+/**
+ * 前面のアプリの移り変わりを追い、監視対象アプリへの「切り替え」を判定する（SPEC 5 章。ユニットテスト用に分離）。
+ * 「直前の前面」は、自アプリ・IME・SystemUI（[ForegroundKind.TRANSIENT]）を除いた最後のパッケージ。
+ * これらを経由して同じ監視対象アプリに戻った場合は切り替えとみなさない。
+ */
+class ForegroundTracker(private val ownPackage: String) {
+    /** 自アプリ・IME・SystemUI を除いた、最後に前面に来たパッケージ */
+    var lastSignificantPackage: String? = null
+        private set
+
+    fun onForeground(packageName: String, guardedPackages: Set<String>, imePackages: Set<String>): ForegroundChange {
+        val kind = SnoozeInterruptPolicy.classify(packageName, ownPackage, guardedPackages, imePackages)
+        if (kind == ForegroundKind.TRANSIENT) return ForegroundChange(kind, switched = false)
+        val switched = kind == ForegroundKind.GUARDED && lastSignificantPackage != packageName
+        lastSignificantPackage = packageName
+        return ForegroundChange(kind, switched)
     }
 }

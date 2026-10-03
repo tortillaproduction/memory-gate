@@ -1,6 +1,5 @@
 package app.memorygate.service
 
-import app.memorygate.domain.SnoozeSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -80,22 +79,5 @@ class SnoozeInterruptPolicyTest {
         tracker.on("com.sns")
         tracker.on("com.android.systemui")
         assertTrue(tracker.on("com.video").switched)
-    }
-
-    // ---- 「開く」で開いた先のパッケージでは即時表示しない ----
-
-    @Test
-    fun noImmediateInOpenedPackageUntilIntervalElapsed() {
-        val now = Instant.parse("2026-10-02T03:00:00Z")
-        val settings = SnoozeSettings(enabled = true, intervalMinutes = 30)
-        val shown = now.minusSeconds(10 * 60).toEpochMilli()
-        // 開いた先（ブラウザなど）では、前回の表示から 30 分たつまで即時表示しない
-        assertFalse(SnoozeInterruptPolicy.allowImmediate("com.android.chrome", "com.android.chrome", settings, shown, now))
-        // それ以外のアプリ・開いた先が不明な場合は即時表示する
-        assertTrue(SnoozeInterruptPolicy.allowImmediate("com.sns", "com.android.chrome", settings, shown, now))
-        assertTrue(SnoozeInterruptPolicy.allowImmediate("com.android.chrome", null, settings, shown, now))
-        // 間隔が経過したら、開いた先でも即時表示する
-        val shownLongAgo = now.minusSeconds(30 * 60).toEpochMilli()
-        assertTrue(SnoozeInterruptPolicy.allowImmediate("com.android.chrome", "com.android.chrome", settings, shownLongAgo, now))
     }
 }

@@ -8,7 +8,6 @@ import app.memorygate.domain.GateLogic
 import app.memorygate.domain.SnoozeLogic
 import app.memorygate.domain.SnoozeSettings
 import app.memorygate.domain.Target
-import app.memorygate.service.SnoozeInterruptPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -66,10 +65,6 @@ class GateStateCache(
     @Volatile
     private var snoozePausedOverride: Long? = null
 
-    /** スヌーズ用ゲートの「開く」で開いた先のパッケージ（SPEC 5 章の堂々巡りの防止。メモリ上だけに保持する） */
-    @Volatile
-    private var snoozeOpenedPackage: String? = null
-
     /** 4.3 ゲートを表示するか。読み込み完了前は表示しない */
     fun shouldShowGate(packageName: String): Boolean {
         val s = snapshot.value ?: return false
@@ -87,14 +82,12 @@ class GateStateCache(
      * 通常のゲート・スヌーズ用ゲートのどちらを表示するか（4.3・4.7）。読み込み完了前は表示しない。
      *
      * @param switched 監視対象アプリへの切り替えか。切り替え時は間隔に関係なくスヌーズ用ゲートを出す
-     *   （ただし「開く」で開いた先のパッケージでは、前回の表示から間隔が経過するまで出さない）
+     *   （ただし「開く」の後の休止中は出さない）
      */
     fun decide(packageName: String, switched: Boolean = false): GateDecision {
         val s = snapshot.value ?: return GateDecision.None
         val now = clock.instant()
         val lastShown = lastShownAt(s)
-        val immediate = switched &&
-            SnoozeInterruptPolicy.allowImmediate(packageName, snoozeOpenedPackage, s.snoozeSettings, lastShown, now)
         return SnoozeLogic.decideGate(
             packageName = packageName,
             now = now,
@@ -104,7 +97,7 @@ class GateStateCache(
             targets = s.targets,
             settings = s.snoozeSettings,
             lastShownAt = lastShown,
-            immediate = immediate,
+            immediate = switched,
             pausedAt = pausedAt(s),
         )
     }
@@ -118,11 +111,6 @@ class GateStateCache(
     /** スヌーズ用ゲートを表示した（DataStore への保存とは別に、すぐ判定に反映する） */
     fun markSnoozeShown(at: Long) {
         snoozeShownOverride = maxOf(at, snoozeShownOverride ?: Long.MIN_VALUE)
-    }
-
-    /** スヌーズ用ゲートの「開く」で開いた先のパッケージを記録する（不明なら null） */
-    fun markSnoozeOpened(packageName: String?) {
-        snoozeOpenedPackage = packageName
     }
 
     /** ゲートの「開く」で誘導先を開いた（スヌーズを休止する。DataStore への保存とは別に、すぐ判定に反映する） */

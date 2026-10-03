@@ -151,7 +151,7 @@ SPEC.md に明記されていない判断と、その理由を記録する。
 - **タイマーは、どちらのゲートも出さなかったときだけ設定する**: ゲートを出した場合は、ゲートを閉じて監視対象アプリに戻ったときのウィンドウイベントで再判定されるため。ゲート表示中にタイマーが発火した場合（前面が自アプリ）も何もしない（同じ判定を繰り返して何度もゲートを起動しないようにするため）。
 - **タイマーの待ち時間は最短 1 秒**（`SnoozeInterruptPolicy.MIN_DELAY_MILLIS`）。
 - **前面のアプリの分類は `SnoozeInterruptPolicy.classify` にまとめてユニットテストする**: 自アプリ・IME（`InputMethodManager.enabledInputMethodList`）・SystemUI（`com.android.systemui`）は「タイマーを止めない」、監視対象アプリは「判定」、それ以外は「タイマーを止める」。IME の一覧はサービスの接続時に取得する。
-- **表示した日時（`lastSnoozeShownAt`）は、DB に保存するとともにメモリ上のキャッシュにもすぐ反映する**（`GateStateCache.markSnoozeShown`）: DB への保存が Flow に反映されるまでの間に、同じ誘導先で二重に表示しないようにするため。
+- **表示した日時（`lastSnoozeShownAt`）は、DB に保存するとともにメモリ上のキャッシュにもすぐ反映する**（`GateStateCache.markSnoozeShown`）: DB への保存が Flow に反映されるまでの間に、同じ誘導先で二重に表示しないようにするため。（v0.1.7 で変更: 保存先は DataStore の全体の `lastSnoozeShownAt` になり、キャッシュ上の値も全体で 1 つにした）
 - **画面のオン・オフは `ACTION_SCREEN_ON` / `ACTION_SCREEN_OFF` / `ACTION_USER_PRESENT` のブロードキャストで受け取る**: オフになったらタイマーを止め、オンになったら（またはロック解除されたら）監視対象アプリが前面にあれば再判定する。ロック画面が表示されている間に起動したゲートは、ロック解除後に表示される。
 - **通知シェード（SystemUI）が開いている間にタイマーが発火した場合は、そのままスヌーズ用ゲートを起動する**（監視対象アプリはその下で前面にあるため）。
 - **背景の昼・夜の判定は 6:00 以上 18:00 未満を昼とする**（`SnoozeBackground.isDaytime`）。判定は画面を表示したとき（`onCreate` / `onNewIntent`）に行い、表示中には切り替えない。

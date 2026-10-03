@@ -16,6 +16,9 @@ interface TargetRepository {
     suspend fun delete(id: Long)
     suspend fun setLastVisitedAt(id: Long, lastVisitedAt: Long?)
     suspend fun setLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?)
+
+    /** スヌーズの ON/OFF だけを変える（間隔・時間帯・画像の設定は残す） */
+    suspend fun setSnoozeEnabled(id: Long, snoozeEnabled: Boolean)
 }
 
 class RoomTargetRepository(private val dao: TargetDao) : TargetRepository {
@@ -39,4 +42,7 @@ class RoomTargetRepository(private val dao: TargetDao) : TargetRepository {
 
     override suspend fun setLastSnoozeShownAt(id: Long, lastSnoozeShownAt: Long?) =
         dao.updateLastSnoozeShownAt(id, lastSnoozeShownAt)
+
+    override suspend fun setSnoozeEnabled(id: Long, snoozeEnabled: Boolean) =
+        dao.updateSnoozeEnabled(id, snoozeEnabled)
 }

@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -37,7 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.memorygate.domain.SnoozeFormat
 import app.memorygate.domain.Target
@@ -66,12 +70,15 @@ fun SnoozeSection(
             .toggleable(value = state.snoozeEnabled, role = Role.Switch, onValueChange = onEnabledChange),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        // 文字の列が残りの幅を取り、スイッチとの間に 16dp 以上あける
+        Column(Modifier.weight(1f).padding(end = 16.dp)) {
             Text("スヌーズ", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             Text(
-                "ゲートを通過した日も、時間帯の間は指定した間隔で知らせます",
+                "時間帯の間、指定の間隔で表示します",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Switch(checked = state.snoozeEnabled, onCheckedChange = null)
@@ -113,7 +120,13 @@ fun SnoozeSection(
             val path = state.snoozeImagePath
             when {
                 state.importingImage -> CircularProgressIndicator(Modifier.size(32.dp))
-                path != null -> FileImage(path, Modifier.size(96.dp)) { ImagePlaceholder() }
+                // スヌーズ用ゲートの丸い画像と同じ表示方法（縦横比を保って円いっぱい、中央合わせ）
+                path != null -> FileImage(
+                    path,
+                    Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
+                ) { ImagePlaceholder() }
                 else -> ImagePlaceholder()
             }
         }

@@ -95,10 +95,22 @@ class SnoozeLogicTest {
     }
 
     @Test
-    fun notReadyWhenNotDue() {
-        // 今日訪問済み（1日ごと）→ 期限切れではない
+    fun readyEvenWhenVisitedIfInWindow() {
+        // 今日訪問済み（1日ごと）で期限切れではなくても、時間帯の中ならスヌーズする（v0.1.6）
         val visitedToday = target(lastVisitedAt = at(8).toEpochMilli())
-        assertFalse(SnoozeLogic.isSnoozeReady(visitedToday, at(12), zone))
+        assertTrue(SnoozeLogic.isSnoozeReady(visitedToday, at(12), zone))
+        // 時間帯の外では出さない
+        assertFalse(SnoozeLogic.isSnoozeReady(visitedToday, at(23), zone))
+        // 訪問済みでも OFF にしたら出さない
+        assertFalse(SnoozeLogic.isSnoozeReady(visitedToday.copy(snoozeEnabled = false), at(12), zone))
+    }
+
+    @Test
+    fun visitedTargetIsShownAgainNextDayInWindow() {
+        // 昨日の時間帯の最後に表示し、今日の時間帯の開始で再び表示する
+        val t = target(lastVisitedAt = at(21, date = today.minusDays(1)).toEpochMilli(), lastShown = at(21, 59, date = today.minusDays(1)).toEpochMilli())
+        assertFalse(SnoozeLogic.isSnoozeReady(t, at(8, 59), zone))
+        assertTrue(SnoozeLogic.isSnoozeReady(t, at(9), zone))
     }
 
     @Test
@@ -149,6 +161,18 @@ class SnoozeLogicTest {
     }
 
     @Test
+    fun snoozeContinuesAfterOpeningFromSnoozeGate() {
+        // スヌーズ用ゲートの「開く」で lastVisitedAt と gatePassedDate を更新した後も、間隔が経過すればまた表示する
+        val opened = at(12).toEpochMilli()
+        val t = target(interval = 30, lastVisitedAt = opened, lastShown = opened)
+        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.sns", at(12, 29), zone, setOf("com.sns"), today, listOf(t)))
+        assertEquals(GateDecision.Snooze(t), SnoozeLogic.decideGate("com.sns", at(12, 30), zone, setOf("com.sns"), today, listOf(t)))
+        // OFF にしたら表示しない
+        val off = t.copy(snoozeEnabled = false)
+        assertEquals(GateDecision.None, SnoozeLogic.decideGate("com.sns", at(12, 30), zone, setOf("com.sns"), today, listOf(off)))
+    }
+
+    @Test
     fun snoozeWhenGateAlreadyPassedToday() {
         val t = target()
         val decision = SnoozeLogic.decideGate("com.sns", at(12), zone, setOf("com.sns"), today, listOf(t))
@@ -187,13 +211,14 @@ class SnoozeLogicTest {
     }
 
     @Test
-    fun nextReadyWaitsUntilDue() {
-        // 今日訪問済み（1日ごと）→ 翌日 0:00 に期限切れ、時間帯の開始 9:00 から
+    fun nextReadyDoesNotWaitUntilDue() {
+        // 今日訪問済み（1日ごと）でも、期限切れになる翌日まで待たない（v0.1.6）
         val visited = target(lastVisitedAt = at(8).toEpochMilli())
-        assertEquals(at(9, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(listOf(visited), at(12), zone))
-        // 24 時間の時間帯なら翌日 0:00
-        val allDay = target(lastVisitedAt = at(8).toEpochMilli(), start = 0, end = 0)
-        assertEquals(at(0, date = today.plusDays(1)), SnoozeLogic.nextSnoozeReadyAt(listOf(allDay), at(12), zone))
+        assertEquals(at(12), SnoozeLogic.nextSnoozeReadyAt(listOf(visited), at(12), zone))
+        // 訪問と同時に表示した場合は、前回の表示 + 間隔
+        val opened = at(12).toEpochMilli()
+        val openedFromSnooze = target(interval = 5, lastVisitedAt = opened, lastShown = opened)
+        assertEquals(at(12, 5), SnoozeLogic.nextSnoozeReadyAt(listOf(openedFromSnooze), at(12, 1), zone))
     }
 
     @Test

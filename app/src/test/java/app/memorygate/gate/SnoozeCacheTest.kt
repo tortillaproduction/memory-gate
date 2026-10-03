@@ -9,6 +9,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Clock
 import java.time.Instant
@@ -68,5 +70,57 @@ class SnoozeCacheTest {
             clock,
         )
         assertEquals(GateDecision.Normal, cache.decide("com.sns"))
+    }
+
+    /** スヌーズ用ゲートの「開く」の後も、間隔が経過すればまたスヌーズ用ゲートを出す（v0.1.6） */
+    @Test
+    fun snoozeContinuesAfterOpen() = runTest {
+        val targets = FakeTargetRepository(listOf(snoozeTarget))
+        val settings = FakeSettingsRepository()
+        val cache = GateStateCache(
+            CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
+            targets,
+            FakeGuardedAppRepository(setOf("com.sns")),
+            settings,
+            clock,
+        )
+        cache.markSnoozeShown(1, now.toEpochMilli())
+        GateInteractor(targets, settings, clock).onTargetOpened(1)
+
+        assertEquals(now.toEpochMilli(), targets.getTarget(1)?.lastVisitedAt)
+        assertEquals(LocalDate.of(2026, 10, 2), settings.passed.value)
+        assertEquals(GateDecision.None, cache.decide("com.sns"))
+        // 訪問済み（期限切れではない）でも、前回の表示から 30 分後に再びスヌーズできる
+        assertEquals(now.plusSeconds(30 * 60), cache.nextSnoozeReadyAt())
+    }
+
+    /** 「スヌーズを止める」: スヌーズだけ OFF にし、ほかの設定と lastVisitedAt・gatePassedDate は変えない */
+    @Test
+    fun stopSnoozeTurnsOffOnlySnooze() = runTest {
+        val image = "/data/snooze_images/a.jpg"
+        val targets = FakeTargetRepository(listOf(snoozeTarget.copy(snoozeImagePath = image)))
+        val settings = FakeSettingsRepository().apply { passed.value = LocalDate.of(2026, 10, 1) }
+        val cache = GateStateCache(
+            CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
+            targets,
+            FakeGuardedAppRepository(setOf("com.sns")),
+            settings,
+            clock,
+        )
+
+        GateInteractor(targets, settings, clock).onSnoozeStopped(1)
+
+        val stopped = targets.getTarget(1)!!
+        assertFalse(stopped.snoozeEnabled)
+        assertEquals(30, stopped.snoozeIntervalMinutes)
+        assertEquals(9 * 60, stopped.snoozeStartMinutes)
+        assertEquals(22 * 60, stopped.snoozeEndMinutes)
+        assertEquals(image, stopped.snoozeImagePath)
+        assertNull(stopped.lastVisitedAt)
+        assertEquals(LocalDate.of(2026, 10, 1), settings.passed.value)
+        // OFF にしたら表示しない（通常のゲートは期限切れなので出る。通過済みの日はどちらも出ない）
+        settings.passed.value = LocalDate.of(2026, 10, 2)
+        assertEquals(GateDecision.None, cache.decide("com.sns"))
+        assertNull(cache.nextSnoozeReadyAt())
     }
 }
